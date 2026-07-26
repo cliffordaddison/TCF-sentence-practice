@@ -3,23 +3,14 @@ import { Island, Sentence, UserSettings, LanguageMode, DisplayMode } from '../ty
 import { SentenceCard } from './SentenceCard';
 import { ttsService } from '../services/tts';
 import { translateToEnglish } from '../services/translator';
-import confetti from 'canvas-confetti';
 import {
   ArrowLeft,
-  Play,
-  Pause,
-  Repeat,
-  Eye,
-  EyeOff,
   Search,
   Settings,
   Bookmark,
-  Volume2,
-  CheckCircle2,
   Headphones,
   Lightbulb,
   Sparkles,
-  Save,
   X,
   SlidersHorizontal,
   Plus,
@@ -125,14 +116,6 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     const isNowMastered = rating === 5;
     const updated = { ...original, rating, mastered: isNowMastered };
     onUpdateSentence(island.id, updated);
-
-    if (isNowMastered && !original.mastered) {
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.7 },
-      });
-    }
   };
 
   const handleToggleFavorite = (sentenceId: string) => {

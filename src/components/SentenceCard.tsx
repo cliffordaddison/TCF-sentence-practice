@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Sentence, TextScale, DisplayMode } from '../types';
-import { Volume2, Star, Eye, CheckCircle2, Bookmark, Trash2, Languages, BarChart3 } from 'lucide-react';
+import { Volume2, Star, CheckCircle2, Bookmark, Trash2, Languages, BarChart3 } from 'lucide-react';
 
 interface SentenceCardProps {
   sentence: Sentence;
