@@ -8,11 +8,33 @@ export interface Sentence {
   id: string;
   target: string; // Target text (e.g. English or French)
   native: string; // Translation text
-  rating: number; // 0 to 5 stars
+  rating: number; // Legacy rating fallback
+  shadowingRating?: number; // 0 to 5 stars for Comprehension / Shadowing track
+  recallRating?: number; // 0 to 5 stars for Speaking / Active Recall track
   reps: number; // Count of audio plays / practice cycles
   practiced: boolean; // Has been practiced at least once
-  mastered: boolean; // True when rating === 5
+  mastered: boolean; // Legacy mastered
+  shadowingMastered?: boolean; // True when shadowingRating === 5
+  recallMastered?: boolean; // True when recallRating === 5
   isFavorite?: boolean;
+}
+
+export function getSentenceRating(sentence: Sentence, mode: DisplayMode): number {
+  if (mode === 'recall') {
+    return sentence.recallRating !== undefined ? sentence.recallRating : 0;
+  }
+  return sentence.shadowingRating !== undefined
+    ? sentence.shadowingRating
+    : (sentence.rating || 0);
+}
+
+export function isSentenceMastered(sentence: Sentence, mode: DisplayMode): boolean {
+  if (mode === 'recall') {
+    return sentence.recallMastered !== undefined ? sentence.recallMastered : false;
+  }
+  return sentence.shadowingMastered !== undefined
+    ? sentence.shadowingMastered
+    : (sentence.mastered || sentence.rating === 5);
 }
 
 export interface Island {

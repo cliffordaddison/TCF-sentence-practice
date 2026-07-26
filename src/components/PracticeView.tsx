@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Island, Sentence, UserSettings, LanguageMode, DisplayMode } from '../types';
+import { Island, Sentence, UserSettings, LanguageMode, DisplayMode, getSentenceRating } from '../types';
 import { SentenceCard } from './SentenceCard';
 import { ttsService } from '../services/tts';
 import { translateToEnglish } from '../services/translator';
@@ -116,16 +116,17 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   });
 
   const applyRatingsFilter = (sentence: Sentence) => {
+    const modeRating = getSentenceRating(sentence, settings.displayMode);
     if (ratingsFilter === 'unrated') {
-      if (sentence.rating > 0) return false;
+      if (modeRating > 0) return false;
     }
-    if (ratingCriteria.minimum !== undefined && sentence.rating < ratingCriteria.minimum) {
+    if (ratingCriteria.minimum !== undefined && modeRating < ratingCriteria.minimum) {
       return false;
     }
-    if (ratingCriteria.maximum !== undefined && sentence.rating > ratingCriteria.maximum) {
+    if (ratingCriteria.maximum !== undefined && modeRating > ratingCriteria.maximum) {
       return false;
     }
-    if (ratingCriteria.exact !== undefined && sentence.rating !== ratingCriteria.exact) {
+    if (ratingCriteria.exact !== undefined && modeRating !== ratingCriteria.exact) {
       return false;
     }
     return true;
@@ -135,9 +136,13 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
   // Sort queue according to setting
   if (settings.sortOrder === 'easy_hard') {
-    activeSentences = [...activeSentences].sort((a, b) => a.rating - b.rating);
+    activeSentences = [...activeSentences].sort(
+      (a, b) => getSentenceRating(a, settings.displayMode) - getSentenceRating(b, settings.displayMode)
+    );
   } else if (settings.sortOrder === 'hard_easy') {
-    activeSentences = [...activeSentences].sort((a, b) => b.rating - a.rating);
+    activeSentences = [...activeSentences].sort(
+      (a, b) => getSentenceRating(b, settings.displayMode) - getSentenceRating(a, settings.displayMode)
+    );
   }
 
   // Queue to play: if sub-batch selected, play sub-batch! Otherwise play all active sentences
@@ -206,18 +211,66 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     const original = island.sentences.find((s) => s.id === sentenceId);
     if (!original) return;
 
-    const nextRating = original.rating === rating ? 0 : rating;
-    const updated = { ...original, rating: nextRating, mastered: nextRating === 5 };
+    const isRecall = settings.displayMode === 'recall';
+    const currentRating = getSentenceRating(original, settings.displayMode);
+    const nextRating = currentRating === rating ? 0 : rating;
+
+    let updated: Sentence;
+    if (isRecall) {
+      const shadowingRating = original.shadowingRating !== undefined ? original.shadowingRating : (original.rating || 0);
+      const shadowingMastered = original.shadowingMastered !== undefined ? original.shadowingMastered : (original.mastered || shadowingRating === 5);
+      updated = {
+        ...original,
+        recallRating: nextRating,
+        recallMastered: nextRating === 5,
+        rating: Math.max(shadowingRating, nextRating),
+        mastered: shadowingMastered || nextRating === 5,
+      };
+    } else {
+      const recallRating = original.recallRating !== undefined ? original.recallRating : 0;
+      const recallMastered = original.recallMastered !== undefined ? original.recallMastered : false;
+      updated = {
+        ...original,
+        shadowingRating: nextRating,
+        shadowingMastered: nextRating === 5,
+        rating: Math.max(nextRating, recallRating),
+        mastered: nextRating === 5 || recallMastered,
+      };
+    }
     onUpdateSentence(island.id, updated);
   };
 
   const handleApplyBulkRating = () => {
     if (rateAllSelection === null) return;
     const visibleIds = activeSentences.map((sentence) => sentence.id);
+    const isRecall = settings.displayMode === 'recall';
+
     visibleIds.forEach((id) => {
       const original = island.sentences.find((s) => s.id === id);
       if (!original) return;
-      const updated = { ...original, rating: rateAllSelection, mastered: rateAllSelection === 5 };
+
+      let updated: Sentence;
+      if (isRecall) {
+        const shadowingRating = original.shadowingRating !== undefined ? original.shadowingRating : (original.rating || 0);
+        const shadowingMastered = original.shadowingMastered !== undefined ? original.shadowingMastered : (original.mastered || shadowingRating === 5);
+        updated = {
+          ...original,
+          recallRating: rateAllSelection,
+          recallMastered: rateAllSelection === 5,
+          rating: Math.max(shadowingRating, rateAllSelection),
+          mastered: shadowingMastered || rateAllSelection === 5,
+        };
+      } else {
+        const recallRating = original.recallRating !== undefined ? original.recallRating : 0;
+        const recallMastered = original.recallMastered !== undefined ? original.recallMastered : false;
+        updated = {
+          ...original,
+          shadowingRating: rateAllSelection,
+          shadowingMastered: rateAllSelection === 5,
+          rating: Math.max(rateAllSelection, recallRating),
+          mastered: rateAllSelection === 5 || recallMastered,
+        };
+      }
       onUpdateSentence(island.id, updated);
     });
     setIsRatingsOpen(false);
@@ -226,10 +279,34 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
   const handleClearVisibleRatings = () => {
     const visibleIds = activeSentences.map((sentence) => sentence.id);
+    const isRecall = settings.displayMode === 'recall';
+
     visibleIds.forEach((id) => {
       const original = island.sentences.find((s) => s.id === id);
       if (!original) return;
-      const updated = { ...original, rating: 0, mastered: false };
+
+      let updated: Sentence;
+      if (isRecall) {
+        const shadowingRating = original.shadowingRating !== undefined ? original.shadowingRating : (original.rating || 0);
+        const shadowingMastered = original.shadowingMastered !== undefined ? original.shadowingMastered : (original.mastered || shadowingRating === 5);
+        updated = {
+          ...original,
+          recallRating: 0,
+          recallMastered: false,
+          rating: shadowingRating,
+          mastered: shadowingMastered,
+        };
+      } else {
+        const recallRating = original.recallRating !== undefined ? original.recallRating : 0;
+        const recallMastered = original.recallMastered !== undefined ? original.recallMastered : false;
+        updated = {
+          ...original,
+          shadowingRating: 0,
+          shadowingMastered: false,
+          rating: recallRating,
+          mastered: recallMastered,
+        };
+      }
       onUpdateSentence(island.id, updated);
     });
     setIsRatingsOpen(false);
@@ -598,8 +675,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                   {(() => {
                     const currentVoice = ttsService.getVoiceByURI(settings.targetVoiceURI);
                     return currentVoice && ttsService.detectGender(currentVoice.name) === 'male'
-                      ? '👨 Male'
-                      : '👩 Female';
+                      ? 'Male'
+                      : 'Female';
                   })()}
                 </span>
               </button>

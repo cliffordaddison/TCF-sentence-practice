@@ -104,29 +104,45 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
   // Compute global metrics across all islands combined
   let totalSentencesCount = 0;
   let totalPracticedCount = 0;
-  let totalMasteredCount = 0;
+  let totalShadowingMasteredCount = 0;
+  let totalRecallMasteredCount = 0;
 
-  const masteredTargetTexts: string[] = [];
-  const masteredNativeTexts: string[] = [];
+  const shadowingTargetTexts: string[] = [];
+  const recallTargetTexts: string[] = [];
 
   islands.forEach((is) => {
     is.sentences.forEach((s) => {
       totalSentencesCount++;
       if (s.practiced || s.reps > 0) totalPracticedCount++;
-      if (s.mastered || s.rating === 5) {
-        totalMasteredCount++;
-        masteredTargetTexts.push(s.target);
-        masteredNativeTexts.push(s.native);
+
+      const isShadowingMastered =
+        s.shadowingMastered === true ||
+        (s.shadowingMastered === undefined && (s.mastered || s.rating === 5));
+
+      const isRecallMastered =
+        s.recallMastered === true ||
+        (s.recallMastered === undefined && s.recallRating === 5);
+
+      if (isShadowingMastered) {
+        totalShadowingMasteredCount++;
+        shadowingTargetTexts.push(s.target);
+      }
+
+      if (isRecallMastered) {
+        totalRecallMasteredCount++;
+        recallTargetTexts.push(s.target);
       }
     });
   });
 
-  // Unique words counted from manually starred / mastered sentences
-  const comprehensionWordsSet = extractUniqueWordsSet(masteredTargetTexts);
-  const speakingWordsSet = extractUniqueWordsSet(masteredNativeTexts);
+  // Unique words counted from manually starred / mastered sentences in each mode
+  const comprehensionWordsSet = extractUniqueWordsSet(shadowingTargetTexts);
+  const speakingWordsSet = extractUniqueWordsSet(recallTargetTexts);
 
   const comprehensionWordCount = comprehensionWordsSet.size;
   const speakingWordCount = speakingWordsSet.size;
+
+  const totalMasteredCount = totalShadowingMasteredCount + totalRecallMasteredCount;
 
   const compProgress = calculateCefrProgress(comprehensionWordCount);
   const speakProgress = calculateCefrProgress(speakingWordCount);

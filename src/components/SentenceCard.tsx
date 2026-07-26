@@ -149,6 +149,24 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
     );
   };
 
+  const currentRating =
+    displayMode === 'recall'
+      ? sentence.recallRating !== undefined
+        ? sentence.recallRating
+        : 0
+      : sentence.shadowingRating !== undefined
+      ? sentence.shadowingRating
+      : sentence.rating || 0;
+
+  const isMasteredInMode =
+    displayMode === 'recall'
+      ? sentence.recallMastered !== undefined
+        ? sentence.recallMastered
+        : false
+      : sentence.shadowingMastered !== undefined
+      ? sentence.shadowingMastered
+      : sentence.mastered || sentence.rating === 5;
+
   return (
     <div
       id={`sentence-card-${sentence.id}`}
@@ -199,7 +217,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
             </span>
           )}
 
-          {sentence.mastered && (
+          {isMasteredInMode && (
             <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
               <CheckCircle2 className="w-3 h-3 text-emerald-500" />
               <span className="hidden sm:inline">Mastered</span>
@@ -217,7 +235,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
         <div className="flex items-center space-x-1 shrink-0">
           <div className="flex text-amber-400 items-center">
             {[1, 2, 3, 4, 5].map((starVal) => {
-              const isFilled = sentence.rating >= starVal;
+              const isFilled = currentRating >= starVal;
               return (
                 <button
                   key={starVal}

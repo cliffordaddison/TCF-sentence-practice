@@ -190,7 +190,9 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredIslands.map((island, index) => {
               const total = island.sentences.length;
-              const mastered = island.sentences.filter((s) => s.mastered || s.rating === 5).length;
+              const mastered = island.sentences.filter(
+                (s) => s.shadowingMastered || s.recallMastered || s.mastered || s.rating === 5
+              ).length;
               const style = getIslandIconAndColor(index, island.name);
 
               return (
