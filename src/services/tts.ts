@@ -1,9 +1,12 @@
 import { LanguageMode, Sentence } from '../types';
 
+export type VoiceGender = 'male' | 'female' | 'neutral';
+
 export interface TTSVoiceOption {
   name: string;
   lang: string;
   voiceURI: string;
+  gender: VoiceGender;
 }
 
 class TTSService {
@@ -40,15 +43,38 @@ class TTSService {
     }
   }
 
+  public detectGender(name: string): VoiceGender {
+    const lower = name.toLowerCase();
+    const maleNames = [
+      'male', 'homme', 'thomas', 'paul', 'daniel', 'nicolas', 'claude', 'david', 'mark', 'george', 'fred',
+      'alex', 'james', 'richard', 'gordon', 'arthur', 'remy', 'henri', 'pierre', 'alain', 'bruno', 'gilles',
+      'jacques', 'mathieu', 'philippe', 'jean', 'steve', 'microsoft paul', 'microsoft david', 'microsoft mark'
+    ];
+    const femaleNames = [
+      'female', 'femme', 'amélie', 'amelie', 'aurelie', 'aurélie', 'hortense', 'julie', 'virginie', 'celine',
+      'samantha', 'victoria', 'karen', 'fiona', 'moira', 'zira', 'denise', 'marie', 'claire', 'genevieve',
+      'audrey', 'chloe', 'chloë', 'lea', 'léa', 'manon', 'florence', 'microsoft zira', 'microsoft hortense', 'microsoft julie'
+    ];
+
+    if (maleNames.some((m) => lower.includes(m))) return 'male';
+    if (femaleNames.some((f) => lower.includes(f))) return 'female';
+    return 'neutral';
+  }
+
   public getAvailableVoices(): TTSVoiceOption[] {
     if (this.voices.length === 0 && this.synth) {
       this.loadVoices();
     }
-    return this.voices.map((v) => ({
-      name: `${v.name} (${v.lang})`,
-      lang: v.lang,
-      voiceURI: v.voiceURI,
-    }));
+    return this.voices.map((v) => {
+      const gender = this.detectGender(v.name);
+      const symbol = gender === 'male' ? '👨 ' : gender === 'female' ? '👩 ' : '';
+      return {
+        name: `${symbol}${v.name} (${v.lang})`,
+        lang: v.lang,
+        voiceURI: v.voiceURI,
+        gender,
+      };
+    });
   }
 
   public getEnglishVoices(): TTSVoiceOption[] {
@@ -60,6 +86,46 @@ class TTSService {
   public getFrenchVoices(): TTSVoiceOption[] {
     return this.getAvailableVoices().filter(
       (v) => v.lang.toLowerCase().startsWith('fr') || v.lang.toLowerCase().includes('fr-')
+    );
+  }
+
+  public getFrenchMaleVoice(): SpeechSynthesisVoice | null {
+    if (!this.voices.length && this.synth) this.loadVoices();
+    const frVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('fr'));
+    return (
+      frVoices.find((v) => this.detectGender(v.name) === 'male') ||
+      frVoices.find((v) => v.name.toLowerCase().includes('thomas') || v.name.toLowerCase().includes('paul') || v.name.toLowerCase().includes('daniel')) ||
+      this.getDefaultVoice('fr')
+    );
+  }
+
+  public getFrenchFemaleVoice(): SpeechSynthesisVoice | null {
+    if (!this.voices.length && this.synth) this.loadVoices();
+    const frVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('fr'));
+    return (
+      frVoices.find((v) => this.detectGender(v.name) === 'female') ||
+      frVoices.find((v) => v.name.toLowerCase().includes('amélie') || v.name.toLowerCase().includes('hortense') || v.name.toLowerCase().includes('julie')) ||
+      this.getDefaultVoice('fr')
+    );
+  }
+
+  public getEnglishMaleVoice(): SpeechSynthesisVoice | null {
+    if (!this.voices.length && this.synth) this.loadVoices();
+    const enVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    return (
+      enVoices.find((v) => this.detectGender(v.name) === 'male') ||
+      enVoices.find((v) => v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('alex')) ||
+      this.getDefaultVoice('en')
+    );
+  }
+
+  public getEnglishFemaleVoice(): SpeechSynthesisVoice | null {
+    if (!this.voices.length && this.synth) this.loadVoices();
+    const enVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    return (
+      enVoices.find((v) => this.detectGender(v.name) === 'female') ||
+      enVoices.find((v) => v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('victoria')) ||
+      this.getDefaultVoice('en')
     );
   }
 

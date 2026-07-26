@@ -93,23 +93,23 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto my-6 bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
+    <div className="w-full max-w-5xl mx-auto my-2 sm:my-6 bg-white rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden border border-slate-200">
       {/* Main Section Header Group */}
-      <div className="bg-slate-900 text-white p-8">
+      <div className="bg-slate-900 text-white p-4 sm:p-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
-            <BarChart3 className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <h2 className="text-2xl font-black tracking-tight">Your Progress</h2>
-            <p className="text-xs font-medium text-slate-400 mt-0.5">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">Your Progress</h2>
+            <p className="text-[11px] sm:text-xs font-medium text-slate-400 mt-0.5">
               Track your language learning journey, audio repetitions, and CEFR mastery.
             </p>
           </div>
         </div>
       </div>
 
-      <div className="p-8 space-y-8">
+      <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
         {/* Your Skill Levels Module */}
         <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-6">
           <h3 className="text-xs font-extrabold text-slate-700 tracking-wider uppercase flex items-center gap-2">

@@ -16,6 +16,8 @@ interface SidebarProps {
   activeIslandName?: string;
   hasActiveIsland: boolean;
   stats?: UserStats;
+  onCloseMobile?: () => void;
+  isMobileDrawer?: boolean;
 }
 
 export function calculateStreak(dailyStats: Record<string, { reps: number }> = {}): number {
@@ -55,20 +57,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeIslandName,
   hasActiveIsland,
   stats,
+  onCloseMobile,
+  isMobileDrawer,
 }) => {
   const streakDays = calculateStreak(stats?.dailyStats || {});
 
+  const handleNavClick = (action: () => void) => {
+    action();
+    onCloseMobile?.();
+  };
+
   return (
-    <aside className="w-[260px] bg-[#111625] text-white flex flex-col h-screen shrink-0 sticky top-0 z-30 select-none shadow-2xl">
+    <aside
+      className={`${
+        isMobileDrawer
+          ? 'w-72 max-w-[85vw] h-full'
+          : 'hidden md:flex w-[260px] h-screen sticky top-0'
+      } bg-[#111625] text-white flex flex-col shrink-0 z-30 select-none shadow-2xl overflow-y-auto`}
+    >
       {/* Brand Logo Header */}
-      <div className="p-8 flex items-center space-x-3">
-        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
-          T
+      <div className="p-6 md:p-8 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
+            T
+          </div>
+          <div>
+            <h1 className="text-lg font-bold leading-none text-white">TCF Trainer</h1>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Exam Training</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-lg font-bold leading-none text-white">TCF Trainer</h1>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Exam Training</p>
-        </div>
+
+        {isMobileDrawer && onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+            title="Close menu"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Navigation Sections */}
@@ -80,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </p>
           <div className="space-y-1">
             <button
-              onClick={() => onSelectView('collections')}
+              onClick={() => handleNavClick(() => onSelectView('collections'))}
               className={`w-full flex items-center px-4 py-3 rounded-xl cursor-pointer font-medium text-sm transition-all ${
                 currentView === 'collections'
                   ? 'bg-blue-600/20 text-blue-400 border-l-4 border-blue-500'
@@ -93,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {hasActiveIsland && (
               <button
-                onClick={() => onSelectView('practice')}
+                onClick={() => handleNavClick(() => onSelectView('practice'))}
                 className={`w-full flex items-center px-4 py-3 rounded-xl cursor-pointer font-medium text-sm transition-all ${
                   currentView === 'practice'
                     ? 'bg-blue-600/20 text-blue-400 border-l-4 border-blue-500'
@@ -108,8 +135,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
 
             <button
-              onClick={onOpenImport}
-              className="w-full flex items-center px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800/40 rounded-xl font-medium text-sm transition-all"
+              onClick={() => handleNavClick(onOpenImport)}
+              className="w-full flex items-center px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800/40 rounded-xl font-medium text-sm transition-all cursor-pointer"
             >
               <PlusCircle className="w-4 h-4 mr-3 text-amber-400" />
               <span>Import Island</span>
@@ -124,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </p>
           <div className="space-y-1">
             <button
-              onClick={() => onSelectView('stats')}
+              onClick={() => handleNavClick(() => onSelectView('stats'))}
               className={`w-full flex items-center px-4 py-3 rounded-xl cursor-pointer font-medium text-sm transition-all ${
                 currentView === 'stats'
                   ? 'bg-blue-600/20 text-blue-400 border-l-4 border-blue-500'
@@ -136,8 +163,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
 
             <button
-              onClick={onOpenSettings}
-              className="w-full flex items-center px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800/40 rounded-xl font-medium text-sm transition-all"
+              onClick={() => handleNavClick(onOpenSettings)}
+              className="w-full flex items-center px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800/40 rounded-xl font-medium text-sm transition-all cursor-pointer"
             >
               <Settings className="w-4 h-4 mr-3 text-purple-400" />
               <span>Settings</span>
@@ -147,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Streak Widget Box */}
-      <div className="p-8">
+      <div className="p-6 md:p-8">
         <div className="bg-gray-800/90 rounded-2xl p-4 border border-gray-700/50">
           <p className="text-xs text-gray-400 mb-1 font-medium">Current Streak</p>
           <p className="text-xl font-bold text-white flex items-center gap-1.5">

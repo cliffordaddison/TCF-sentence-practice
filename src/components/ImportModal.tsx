@@ -99,20 +99,20 @@ export const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImportIslan
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
         {/* Header Navigation Group */}
-        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-3">
+        <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
               onClick={onClose}
-              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-full transition-colors"
+              className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-full transition-colors shrink-0"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">Import Island</h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-xl font-bold text-slate-900 truncate">Import Island</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 line-clamp-1 sm:line-clamp-none">
                 Create customized language lessons by pasting text or uploading Excel spreadsheets.
               </p>
             </div>
@@ -126,7 +126,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImportIslan
           </button>
         </div>
 
-        <div className="p-8 space-y-6">
+        <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 overflow-y-auto">
           {/* Status / Limit Banner Row */}
           <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex items-start gap-3">
             <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold text-sm shadow-sm mt-0.5">

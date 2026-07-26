@@ -113,26 +113,26 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto my-4 bg-[#F5F7FA] min-h-[calc(100vh-2rem)] p-4 md:p-6 rounded-[28px] shadow-xl border border-gray-100">
+    <div className="w-full max-w-5xl mx-auto my-2 sm:my-4 bg-[#F5F7FA] p-3.5 sm:p-6 rounded-2xl sm:rounded-[28px] shadow-xl border border-gray-100">
       {/* Header Banner (Matching Reference Blue Gradient & FR Accent) */}
-      <header className="bg-gradient-to-r from-[#4285F4] via-[#3B78E7] to-[#6366F1] p-8 rounded-[24px] text-white flex justify-between items-center relative overflow-hidden shadow-lg mb-6">
-        <div className="flex items-center space-x-4 relative z-10">
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white backdrop-blur-md">
-            <ArrowLeft className="w-5 h-5 text-white" />
+      <header className="bg-gradient-to-r from-[#4285F4] via-[#3B78E7] to-[#6366F1] p-4 sm:p-8 rounded-2xl sm:rounded-[24px] text-white flex justify-between items-center relative overflow-hidden shadow-lg mb-4 sm:mb-6">
+        <div className="flex items-center space-x-3 sm:space-x-4 relative z-10 min-w-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/20 flex items-center justify-center text-white backdrop-blur-md shrink-0">
+            <Compass className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold leading-tight tracking-tight">Language Islands</h2>
-            <p className="text-white/80 text-xs md:text-sm mt-0.5">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight truncate">Language Islands</h2>
+            <p className="text-white/80 text-xs sm:text-sm mt-0.5 line-clamp-1 sm:line-clamp-none">
               Explore curated topic collections with dialogues, stories, and sentences.
             </p>
-            <div className="flex items-center space-x-4 mt-3 text-xs font-medium text-white/90">
-              <span className="flex items-center space-x-1.5">
-                <BookOpen className="w-4 h-4 text-white/80" />
+            <div className="flex items-center space-x-3 sm:space-x-4 mt-2 sm:mt-3 text-[11px] sm:text-xs font-medium text-white/90">
+              <span className="flex items-center space-x-1">
+                <BookOpen className="w-3.5 h-3.5 text-white/80" />
                 <span>{filteredIslands.length} Topics</span>
               </span>
               <span className="text-white/40">|</span>
-              <span className="flex items-center space-x-1.5">
-                <Trophy className="w-4 h-4 text-white/80" />
+              <span className="flex items-center space-x-1">
+                <Trophy className="w-3.5 h-3.5 text-white/80" />
                 <span>{islands.length} Islands</span>
               </span>
             </div>
@@ -140,8 +140,8 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
         </div>
 
         {/* Decorative FR Globe Overlay */}
-        <div className="relative z-10 flex items-center justify-center">
-          <span className="text-3xl font-extrabold tracking-wider text-white/90 drop-shadow-sm select-none">
+        <div className="relative z-10 flex items-center justify-center shrink-0 ml-2">
+          <span className="text-2xl sm:text-3xl font-extrabold tracking-wider text-white/90 drop-shadow-sm select-none">
             FR
           </span>
         </div>
@@ -149,24 +149,25 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
       </header>
 
       {/* Search Bar & Import Action Row */}
-      <div className="space-y-4 mb-6">
-        <div className="flex gap-3 items-center">
-          <div className="relative flex-1">
-            <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+      <div className="space-y-4 mb-4 sm:mb-6">
+        <div className="flex gap-2.5 sm:gap-3 items-center">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search topic islands or keywords..."
-              className="w-full pl-12 pr-4 py-3 bg-white text-gray-800 rounded-2xl border border-gray-200/80 focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-sm font-medium placeholder:text-gray-400 transition-all shadow-xs"
+              placeholder="Search topic islands..."
+              className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-white text-gray-800 rounded-xl sm:rounded-2xl border border-gray-200/80 focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-xs sm:text-sm font-medium placeholder:text-gray-400 transition-all shadow-xs"
             />
           </div>
 
           <button
             onClick={onOpenImport}
-            className="px-5 py-3 rounded-2xl bg-white border border-blue-200 text-blue-600 font-bold text-xs hover:bg-blue-50 transition-colors flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
+            className="px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-white border border-blue-200 text-blue-600 font-bold text-xs hover:bg-blue-50 transition-colors flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
+            <span className="inline sm:hidden">Import</span>
             <span className="hidden sm:inline">Import Custom Island</span>
           </button>
         </div>

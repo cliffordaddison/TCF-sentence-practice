@@ -13,6 +13,7 @@ interface SentenceCardProps {
   showTargetText: boolean;
   textSize: TextScale;
   isSelectionMode?: boolean;
+  onHighlightSentence: (sentenceId: string) => void;
   onToggleSelect: (sentenceId: string) => void;
   onSpeak: (sentence: Sentence) => void;
   onRate: (sentenceId: string, rating: number) => void;
@@ -33,6 +34,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
   showTargetText,
   textSize,
   isSelectionMode,
+  onHighlightSentence,
   onToggleSelect,
   onSpeak,
   onRate,
@@ -42,7 +44,6 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
   onDoubleClick,
 }) => {
   const [isRevealed, setIsRevealed] = useState(false);
-  const revealTimerRef = useRef<number | null>(null);
   const clickTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -50,17 +51,6 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
       setIsRevealed(false);
     }
   }, [showTargetText]);
-
-  useEffect(() => {
-    return () => {
-      if (clickTimerRef.current) {
-        window.clearTimeout(clickTimerRef.current);
-      }
-      if (revealTimerRef.current) {
-        window.clearTimeout(revealTimerRef.current);
-      }
-    };
-  }, []);
 
   const textClasses = {
     sm: 'text-sm',
@@ -71,10 +61,6 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
-    if (revealTimerRef.current) {
-      window.clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = null;
-    }
 
     if (clickTimerRef.current) {
       window.clearTimeout(clickTimerRef.current);
@@ -84,21 +70,21 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
 
     clickTimerRef.current = window.setTimeout(() => {
       clickTimerRef.current = null;
-      onToggleSelect(sentence.id);
-    }, 220);
+      onHighlightSentence(sentence.id);
+    }, 200);
   };
 
   const handleCardDoubleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
-    if (revealTimerRef.current) {
-      window.clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = null;
-    }
     if (clickTimerRef.current) {
       window.clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;
     }
-    onDoubleClick?.(sentence.id);
+    if (onDoubleClick) {
+      onDoubleClick(sentence.id);
+    } else {
+      onToggleSelect(sentence.id);
+    }
   };
 
   const isTranslationVisible = showTargetText || isRevealed;
@@ -168,67 +154,68 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
       id={`sentence-card-${sentence.id}`}
       onClick={handleCardClick}
       onDoubleClick={handleCardDoubleClick}
-      className={`relative rounded-2xl p-4 md:p-5 transition-all duration-200 select-none ${
+      className={`relative rounded-2xl p-3.5 sm:p-5 transition-all duration-300 select-none ${
         isCurrentlyPlaying
-          ? 'bg-[#EFF6FF] border-2 border-blue-500 shadow-md ring-2 ring-blue-400/20'
+          ? 'bg-blue-50/90 border-2 border-blue-600 shadow-md ring-4 ring-blue-500/15 scale-[1.01]'
           : isAnchor
-          ? 'bg-amber-50 border-2 border-amber-400 shadow-sm'
+          ? 'bg-amber-50/80 border-2 border-amber-400 shadow-xs'
           : isSelected
-          ? 'bg-blue-50/40 border-2 border-blue-400 shadow-sm'
+          ? 'bg-blue-50/40 border-2 border-blue-400 shadow-xs'
           : 'bg-white border border-emerald-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs'
       }`}
     >
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex space-x-3 items-start flex-1 min-w-0">
-          {/* Tag Number & Audio Speaker Squircle */}
-          <div className="flex items-center space-x-2 shrink-0 pt-0.5">
-            <span className="text-xs font-extrabold text-blue-600 select-none">
-              #{index + 1}
+      {/* Card Header Bar */}
+      <div className="flex items-center justify-between border-b border-gray-100/80 pb-2 mb-3 gap-2">
+        {/* Left: Checkbox + #Tag Number + Active Playing Soundwave Badge + Badges */}
+        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0 min-w-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect(sentence.id);
+            }}
+            className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+              isSelected
+                ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                : 'border-gray-300 hover:border-blue-400 bg-white'
+            }`}
+            title={isSelected ? 'Unselect sentence' : 'Select sentence for separate repping'}
+          >
+            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 stroke-[3]" />}
+          </button>
+
+          <span className="text-[11px] sm:text-xs font-extrabold text-blue-600 select-none">
+            #{index + 1}
+          </span>
+
+          {isCurrentlyPlaying && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-blue-800 bg-blue-100/90 px-2.5 py-0.5 rounded-full border border-blue-300 shadow-2xs truncate max-w-[130px] sm:max-w-none">
+              <span className="flex items-end gap-[2px] h-3">
+                <span className="w-[3px] bg-blue-600 rounded-full animate-pulse h-full" />
+                <span className="w-[3px] bg-blue-600 rounded-full animate-bounce h-2" />
+                <span className="w-[3px] bg-blue-600 rounded-full animate-pulse h-2.5" />
+              </span>
+              <span>{activeRepInfo || 'Playing...'}</span>
             </span>
-            <button
-              onClick={() => onSpeak(sentence)}
-              title="Listen to phrase audio"
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                isCurrentlyPlaying
-                  ? 'bg-blue-600 text-white shadow-xs border border-blue-600'
-                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100'
-              }`}
-            >
-              {isCurrentlyPlaying ? (
-                <BarChart3 className="w-4.5 h-4.5 text-white" />
-              ) : (
-                <Volume2 className="w-4.5 h-4.5" />
-              )}
-            </button>
-          </div>
+          )}
 
-          <div className="flex-1 min-w-0 pl-1">
-            {renderTextContent()}
-
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              {isCurrentlyPlaying && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-blue-800 bg-blue-100/90 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  <span>🔊 {activeRepInfo || 'Playing...'}</span>
-                </span>
-              )}
-              {sentence.mastered && (
-                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                  <span>Mastered</span>
-                </div>
-              )}
-              {sentence.reps > 0 && (
-                <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
-                  Reps: {sentence.reps}
-                </span>
-              )}
+          {sentence.mastered && (
+            <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              <span className="hidden sm:inline">Mastered</span>
             </div>
-          </div>
+          )}
+
+          {sentence.reps > 0 && (
+            <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+              {sentence.reps}x
+            </span>
+          )}
         </div>
 
-        {/* 5-Star Rating & Actions */}
-        <div className="flex items-center space-x-1 shrink-0 pt-0.5">
-          <div className="flex text-amber-400 text-base">
+        {/* Right: Star Ratings & Actions */}
+        <div className="flex items-center space-x-1 shrink-0">
+          <div className="flex text-amber-400 items-center">
             {[1, 2, 3, 4, 5].map((starVal) => {
               const isFilled = sentence.rating >= starVal;
               return (
@@ -239,7 +226,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
                   title={`Rate ${starVal} Star${starVal > 1 ? 's' : ''}`}
                 >
                   <Star
-                    className={`w-4 h-4 ${
+                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
                       isFilled ? 'fill-amber-400 text-amber-400' : 'text-gray-200 fill-gray-100'
                     }`}
                   />
@@ -251,7 +238,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
           {onToggleFavorite && (
             <button
               onClick={() => onToggleFavorite(sentence.id)}
-              className="ml-1 p-1 text-gray-300 hover:text-amber-500 transition-colors cursor-pointer"
+              className="p-1 text-gray-300 hover:text-amber-500 transition-colors cursor-pointer"
               title="Bookmark phrase"
             >
               <Bookmark
@@ -262,7 +249,6 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
             </button>
           )}
 
-          {/* In shadowing or recall mode, show a translate/reveal button */}
           {displayMode !== 'normal' && !isTranslationVisible && (
             <button
               onClick={() => setIsRevealed(true)}
@@ -273,7 +259,6 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
             </button>
           )}
 
-          {/* In normal mode, show translate button if native is missing */}
           {displayMode === 'normal' && onTranslateSentence && (!sentence.native || sentence.native === sentence.target) && (
             <button
               onClick={() => onTranslateSentence(sentence.id)}
@@ -287,12 +272,35 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
           {onDeleteSentence && (
             <button
               onClick={() => onDeleteSentence(sentence.id)}
-              className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-              title="Delete Sentence Card"
+              className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+              title="Delete sentence"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Main Body Row: Listen Audio Button + Sentence Text Content */}
+      <div className="flex items-start gap-3 w-full">
+        <button
+          onClick={() => onSpeak(sentence)}
+          title="Listen to phrase audio"
+          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 mt-0.5 ${
+            isCurrentlyPlaying
+              ? 'bg-blue-600 text-white shadow-xs border border-blue-600'
+              : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100'
+          }`}
+        >
+          {isCurrentlyPlaying ? (
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          ) : (
+            <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
+          )}
+        </button>
+
+        <div className="flex-1 min-w-0 pt-0.5">
+          {renderTextContent()}
         </div>
       </div>
     </div>

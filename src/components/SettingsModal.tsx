@@ -44,17 +44,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
         {/* Modal Header Group */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
-              <Settings className="w-5 h-5" />
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Practice Settings</h2>
-              <p className="text-xs text-slate-500 font-medium">Customize repetitions, pauses, and playback</p>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">Practice Settings</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium">Customize repetitions, pauses, and playback</p>
             </div>
           </div>
 
@@ -244,9 +244,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Voice Selection Dropdowns */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                French Voice (Target)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-slate-600">
+                  French Voice (Target)
+                </label>
+                <div className="flex gap-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const voice = ttsService.getFrenchMaleVoice();
+                      if (voice) onUpdateSettings({ ...settings, targetVoiceURI: voice.voiceURI });
+                    }}
+                    className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold transition-colors cursor-pointer"
+                  >
+                    👨 Male
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const voice = ttsService.getFrenchFemaleVoice();
+                      if (voice) onUpdateSettings({ ...settings, targetVoiceURI: voice.voiceURI });
+                    }}
+                    className="px-2 py-0.5 rounded bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold transition-colors cursor-pointer"
+                  >
+                    👩 Female
+                  </button>
+                </div>
+              </div>
               <select
                 value={settings.targetVoiceURI}
                 onChange={(e) =>
@@ -264,9 +288,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                English Voice (Native)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-slate-600">
+                  English Voice (Native)
+                </label>
+                <div className="flex gap-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const voice = ttsService.getEnglishMaleVoice();
+                      if (voice) onUpdateSettings({ ...settings, nativeVoiceURI: voice.voiceURI });
+                    }}
+                    className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold transition-colors cursor-pointer"
+                  >
+                    👨 Male
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const voice = ttsService.getEnglishFemaleVoice();
+                      if (voice) onUpdateSettings({ ...settings, nativeVoiceURI: voice.voiceURI });
+                    }}
+                    className="px-2 py-0.5 rounded bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold transition-colors cursor-pointer"
+                  >
+                    👩 Female
+                  </button>
+                </div>
+              </div>
               <select
                 value={settings.nativeVoiceURI}
                 onChange={(e) =>

@@ -141,9 +141,16 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   }
 
   // Queue to play: if sub-batch selected, play sub-batch! Otherwise play all active sentences
+  const selectedSentences = activeSentences.filter((s) => selectedIds.includes(s.id));
+
   const playbackQueue =
-    selectedIds.length > 0
-      ? activeSentences.filter((s) => selectedIds.includes(s.id))
+    selectedIds.length > 0 && selectedSentences.length > 0
+      ? selectedSentences
+      : activeSentences;
+
+  const visibleSentences =
+    selectionMode && selectedIds.length > 0 && selectedSentences.length > 0
+      ? selectedSentences
       : activeSentences;
 
   const getQueueStartIndex = (queue: Sentence[]) => {
@@ -152,45 +159,32 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     return anchorIndex >= 0 ? anchorIndex : 0;
   };
 
-  const handleToggleSelect = (id: string) => {
-    const hasActiveSelection = selectionMode || selectedIds.length > 0;
-
-    if (hasActiveSelection) {
-      setSelectedIds((prev) => {
-        const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
-        if (next.length === 0) {
-          setPlaybackAnchorId(null);
-          setSelectionMode(false);
-        } else {
-          setSelectionMode(true);
-          setPlaybackAnchorId(id);
-        }
-        return next;
-      });
-      return;
-    }
-
+  const handleHighlightSentence = (id: string) => {
     setPlaybackAnchorId(id);
-    const queue = selectedIds.length > 0
-      ? activeSentences.filter((sentence) => selectedIds.includes(sentence.id))
-      : activeSentences;
+    const queue = playbackQueue;
     const anchorIndex = queue.findIndex((sentence) => sentence.id === id);
     if (anchorIndex >= 0) {
       queueIndexRef.current = anchorIndex;
       setCurrentQueueIndex(anchorIndex);
     }
-    setSelectionMode(false);
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const isSelected = prev.includes(id);
+      const next = isSelected ? prev.filter((item) => item !== id) : [...prev, id];
+      if (next.length === 0) {
+        setSelectionMode(false);
+      }
+      return next;
+    });
+    setPlaybackAnchorId(id);
   };
 
   const handleCardDoubleClick = (id: string) => {
     setSelectionMode(true);
-    setSelectedIds((prev) => {
-      const next = prev.includes(id) ? prev : [...prev, id];
-      if (next.length > 0) {
-        setPlaybackAnchorId(id);
-      }
-      return next;
-    });
+    setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setPlaybackAnchorId(id);
   };
 
   const handleSpeakSingleCard = async (sentence: Sentence) => {
@@ -291,6 +285,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   const repCounterRef = useRef(0);
   const settingsRef = useRef(settings);
   const islandRef = useRef(island);
+  const cardsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     queueRef.current = playbackQueue;
@@ -304,13 +299,24 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     islandRef.current = island;
   }, [island]);
 
-  // Scroll active playing sentence card into view
+  // Scroll active playing sentence card into view and sync anchor during repping
   useEffect(() => {
     if (isPlaying && playbackQueue[currentQueueIndex]) {
       const activeId = playbackQueue[currentQueueIndex].id;
+      setPlaybackAnchorId(activeId);
+      const container = cardsContainerRef.current;
       const el = document.getElementById(`sentence-card-${activeId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (container && el) {
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        if (elRect.top < containerRect.top || elRect.bottom > containerRect.bottom) {
+          const relativeTop = elRect.top - containerRect.top + container.scrollTop;
+          const targetScrollTop = relativeTop - container.clientHeight / 2 + elRect.height / 2;
+          container.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'smooth',
+          });
+        }
       }
     }
   }, [currentQueueIndex, isPlaying, playbackQueue]);
@@ -414,40 +420,41 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   }, [isPlaying]);
 
   const toggleAutoPlay = () => {
-    if (isPaused) {
-      setIsPaused(false);
-      setIsPlaying(true);
-      return;
-    }
-
     if (isPlaying) {
       isAutoPlayRef.current = false;
-      setIsPaused(true);
       setIsPlaying(false);
       ttsService.stop();
       return;
+    }
+
+    if (selectedIds.length > 0 && !selectionMode) {
+      setSelectionMode(true);
     }
 
     const queue = playbackQueue;
     const startIndex = getQueueStartIndex(queue);
     queueIndexRef.current = startIndex;
     setCurrentQueueIndex(startIndex);
+    if (queue[startIndex]) {
+      setPlaybackAnchorId(queue[startIndex].id);
+    }
     repCounterRef.current = 0;
     setActiveRepCounter(0);
-    setIsPaused(false);
     setIsPlaying(true);
   };
 
   const handlePlaySelection = () => {
     if (selectedIds.length === 0) return;
     setSelectionMode(true);
-    const queue = playbackQueue;
+    const queue = selectedSentences.length > 0 ? selectedSentences : activeSentences;
     const startIndex = getQueueStartIndex(queue);
     queueIndexRef.current = startIndex;
     setCurrentQueueIndex(startIndex);
+    if (queue[startIndex]) {
+      setPlaybackAnchorId(queue[startIndex].id);
+    }
     repCounterRef.current = 0;
     setActiveRepCounter(0);
-    setIsPaused(false);
     setIsPlaying(true);
   };
 
@@ -455,7 +462,6 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     setSelectionMode(false);
     setSelectedIds([]);
     setPlaybackAnchorId(null);
-    setIsPaused(false);
     setIsPlaying(false);
     ttsService.stop();
   };
@@ -483,30 +489,30 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   const speakPercent = totalInIsland > 0 ? Math.round((masteredInIsland / totalInIsland) * 100) : 0;
 
   return (
-    <div className="w-full max-w-6xl mx-auto bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden my-4 border border-gray-100">
+    <div className="w-full max-w-6xl mx-auto bg-white rounded-xl sm:rounded-[24px] shadow-2xl flex flex-col overflow-hidden border border-gray-100 h-full min-h-0">
       {/* Top Bar Header */}
-      <header className="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center relative z-10">
-        <div className="flex items-center space-x-4">
+      <header className="bg-white px-3.5 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex justify-between items-center relative z-10 gap-2 shrink-0">
+        <div className="flex items-center space-x-2.5 sm:space-x-4 min-w-0">
           <button
             onClick={onBack}
-            className="w-10 h-10 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors cursor-pointer text-gray-700"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors cursor-pointer text-gray-700 shrink-0"
             title="Back to Topic Islands"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 leading-tight">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-xl font-bold text-gray-900 leading-tight truncate">
               {island.name || 'Sentences'}
             </h2>
-            <p className="text-xs font-medium text-gray-400 mt-0.5">
-              {island.description || `${totalInIsland} Questions & Answers - Part 1`}
+            <p className="text-[11px] sm:text-xs font-medium text-gray-400 mt-0.5 truncate">
+              {island.description || `${totalInIsland} Questions & Answers`}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <span className="text-xs bg-blue-50 text-blue-700 font-bold px-3 py-1 rounded-full border border-blue-100">
-            Queue: {playbackQueue.length} / {totalInIsland}
+        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+          <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border border-blue-100">
+            Queue: {playbackQueue.length}/{totalInIsland}
           </span>
           {onDeleteIsland && (
             <button
@@ -516,32 +522,32 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                   onBack();
                 }
               }}
-              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
               title="Delete Language Island"
             >
-              <Trash2 className="w-4.5 h-4.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
         </div>
       </header>
 
       {/* Main Workspace Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 h-full">
         {/* Practice Track (Center List) */}
-        <section className="flex-[1.5] flex flex-col border-r border-gray-100">
+        <section className="flex-1 flex flex-col border-r border-gray-100 min-w-0 min-h-0 h-full overflow-hidden">
           {/* Control Strip matching reference bar */}
-          <div className="p-3.5 border-b border-gray-100 bg-[#F8FAFC] flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center space-x-2">
+          <div className="p-2.5 sm:p-3.5 border-b border-gray-100 bg-[#F8FAFC] flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 onClick={toggleAutoPlay}
-                className={`px-4 py-2 rounded-2xl font-bold text-xs shadow-xs flex items-center space-x-2 transition-all cursor-pointer ${
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl font-bold text-xs shadow-xs flex items-center space-x-1.5 sm:space-x-2 transition-all cursor-pointer ${
                   isPlaying
                     ? 'bg-amber-500 hover:bg-amber-600 text-gray-900'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                <span>{isPaused ? 'Resume' : isPlaying ? 'Pause' : 'Rep'}</span>
+                {isPlaying ? <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                <span>{isPlaying ? 'Pause' : 'Rep'}</span>
               </button>
 
               <select
@@ -549,7 +555,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                 onChange={(e) =>
                   onUpdateSettings({ ...settings, repetitionCount: parseInt(e.target.value) })
                 }
-                className="bg-white border border-gray-200 rounded-2xl px-3 py-1.5 text-xs font-bold text-gray-700 focus:outline-none cursor-pointer shadow-xs"
+                className="bg-white border border-gray-200 rounded-xl sm:rounded-2xl px-2 sm:px-3 py-1.5 text-xs font-bold text-gray-700 focus:outline-none cursor-pointer shadow-xs"
               >
                 <option value={1}>1x</option>
                 <option value={2}>2x</option>
@@ -564,13 +570,39 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                   onUpdateSettings({ ...settings, languageMode: e.target.value as LanguageMode })
                 }
                 title="Audio Order & Language Mode"
-                className="bg-white border border-blue-200 rounded-2xl px-2.5 py-1.5 text-xs font-extrabold text-blue-700 focus:outline-none cursor-pointer shadow-xs hover:border-blue-400"
+                className="bg-white border border-blue-200 rounded-xl sm:rounded-2xl px-2 sm:px-2.5 py-1.5 text-xs font-extrabold text-blue-700 focus:outline-none cursor-pointer shadow-xs hover:border-blue-400 max-w-[130px] sm:max-w-none truncate"
               >
-                <option value="en_fr">🌐 EN → FR (English First)</option>
-                <option value="fr_en">🌐 FR → EN (French First)</option>
+                <option value="en_fr">🌐 EN → FR</option>
+                <option value="fr_en">🌐 FR → EN</option>
                 <option value="fr_only">🇫🇷 French Only</option>
                 <option value="en_only">🇬🇧 English Only</option>
               </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const currentVoice = ttsService.getVoiceByURI(settings.targetVoiceURI);
+                  const isMale = currentVoice ? ttsService.detectGender(currentVoice.name) === 'male' : false;
+                  if (isMale) {
+                    const femaleVoice = ttsService.getFrenchFemaleVoice();
+                    if (femaleVoice) onUpdateSettings({ ...settings, targetVoiceURI: femaleVoice.voiceURI });
+                  } else {
+                    const maleVoice = ttsService.getFrenchMaleVoice();
+                    if (maleVoice) onUpdateSettings({ ...settings, targetVoiceURI: maleVoice.voiceURI });
+                  }
+                }}
+                title="Switch Target Voice Gender (Male / Female)"
+                className="bg-white border border-purple-200 hover:border-purple-400 rounded-xl sm:rounded-2xl px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-700 flex items-center space-x-1 cursor-pointer shadow-xs transition-colors shrink-0"
+              >
+                <span>
+                  {(() => {
+                    const currentVoice = ttsService.getVoiceByURI(settings.targetVoiceURI);
+                    return currentVoice && ttsService.detectGender(currentVoice.name) === 'male'
+                      ? '👨 Male'
+                      : '👩 Female';
+                  })()}
+                </span>
+              </button>
             </div>
 
             <div className="flex items-center space-x-1 text-gray-400">
@@ -651,7 +683,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           </div>
 
           {/* Search Bar Strip + Add Sentence Button */}
-          <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-2">
+          <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-2 shrink-0">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
@@ -732,15 +764,29 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           )}
 
           {/* Card List */}
-          <div className="p-5 space-y-3.5 overflow-y-auto max-h-[700px] flex-1 bg-[#F8FAFC]">
-            {activeSentences.length === 0 ? (
+          <div ref={cardsContainerRef} className="p-3.5 sm:p-5 space-y-3.5 overflow-y-auto flex-1 min-h-0 bg-[#F8FAFC]">
+            {selectionMode && selectedIds.length > 0 && (
+              <div className="bg-blue-600 text-white px-4 py-2.5 rounded-2xl mb-3 flex items-center justify-between shadow-xs animate-fadeIn">
+                <span className="text-xs font-bold">
+                  ✨ Repping {selectedIds.length} Selected Sentences Only
+                </span>
+                <button
+                  onClick={handleCloseSelectionSession}
+                  className="bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Exit Separate Repping ✕
+                </button>
+              </div>
+            )}
+
+            {visibleSentences.length === 0 ? (
               <div className="py-16 text-center bg-white rounded-2xl border border-gray-200">
                 <p className="text-gray-500 font-medium text-sm">
-                  {searchFilter ? 'No sentences match your search.' : 'No sentences in this island yet. Click "Add Sentence" above!'}
+                  {searchFilter ? 'No sentences match your search.' : 'No sentences in this island yet.'}
                 </p>
               </div>
             ) : (
-              activeSentences.map((sentence, index) => {
+              visibleSentences.map((sentence, index) => {
                 const isSelected = selectedIds.includes(sentence.id);
                 const isCurrentlyPlaying =
                   isPlaying && playbackQueue[currentQueueIndex]?.id === sentence.id;
@@ -759,6 +805,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                     showTargetText={settings.showTargetText}
                     textSize={settings.textSize}
                     isSelectionMode={selectionMode}
+                    onHighlightSentence={handleHighlightSentence}
                     onToggleSelect={handleToggleSelect}
                     onDoubleClick={handleCardDoubleClick}
                     onSpeak={handleSpeakSingleCard}
@@ -773,8 +820,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           </div>
         </section>
 
-        {/* Right Sidebar (Matching Reference Cards Exactly) */}
-        <aside className="w-full lg:w-[340px] bg-[#F8FAFC] p-5 space-y-4 shrink-0 border-t lg:border-t-0 border-gray-100 overflow-y-auto max-h-[800px]">
+        {/* Right Sidebar (Desktop Only) */}
+        <aside className="hidden lg:block lg:w-[340px] bg-[#F8FAFC] p-5 space-y-4 shrink-0 border-l border-gray-100 overflow-y-auto max-h-full">
           {/* Timeframe Toggle + Stats Box */}
           <div className="bg-white rounded-2xl p-5 shadow-xs border border-gray-200/80">
             <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
@@ -905,20 +952,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
         </aside>
       </div>
 
-      {selectionMode && selectedIds.length > 0 && (
-        <div className="fixed top-4 right-4 z-[60]">
-          <button
-            onClick={handleCloseSelectionSession}
-            className="rounded-full bg-white/90 border border-gray-200 text-gray-700 shadow-lg px-3 py-2 text-sm font-semibold"
-            title="Close selection session"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       {/* Floating Selection Bar */}
-      {selectedIds.length > 0 && (
+      {!selectionMode && selectedIds.length > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-[600px] bg-[#111625] text-white py-3 px-6 rounded-full flex items-center justify-between shadow-2xl border border-white/10 z-50 animate-fadeIn">
           <p className="text-sm font-medium">
             <span className="text-blue-400 font-bold">{selectedIds.length}</span> sentences selected

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Menu } from 'lucide-react';
 import { Island, Sentence, UserSettings, UserStats, ViewMode } from './types';
 import {
   loadIslands,
@@ -34,6 +35,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<ViewMode>('collections');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Initialize data on mount
   useEffect(() => {
@@ -189,8 +191,58 @@ export default function App() {
   const activeIsland = islands.find((i) => i.id === activeIslandId) || islands[0];
 
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA] font-sans antialiased text-slate-800">
-      {/* Left Navigation Sidebar */}
+    <div className="flex flex-col md:flex-row h-full h-[100dvh] max-h-[100dvh] w-full bg-[#F5F7FA] font-sans antialiased text-slate-800 overflow-hidden">
+      {/* Mobile Top Navigation Header */}
+      <header className="flex md:hidden items-center justify-between bg-[#111625] text-white px-4 py-3 shrink-0 z-40 shadow-md">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center font-bold text-white text-xs shadow-xs">
+            T
+          </div>
+          <div>
+            <h1 className="text-base font-bold leading-none text-white">TCF Trainer</h1>
+            <p className="text-[9px] text-gray-400 uppercase tracking-wider mt-0.5">
+              {currentView === 'collections'
+                ? 'Topic Islands'
+                : currentView === 'practice'
+                ? activeIsland?.name || 'Practice'
+                : 'Stats'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition-colors cursor-pointer"
+          aria-label="Open Navigation Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      </header>
+
+      {/* Mobile Navigation Drawer Backdrop & Modal */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative z-10 animate-slideInLeft">
+            <Sidebar
+              currentView={currentView}
+              onSelectView={(view) => setCurrentView(view)}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              onOpenImport={() => setIsImportOpen(true)}
+              activeIslandName={activeIsland?.name}
+              hasActiveIsland={Boolean(activeIsland)}
+              stats={stats}
+              isMobileDrawer={true}
+              onCloseMobile={() => setIsMobileMenuOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Left Navigation Sidebar */}
       <Sidebar
         currentView={currentView}
         onSelectView={(view) => setCurrentView(view)}
@@ -202,7 +254,13 @@ export default function App() {
       />
 
       {/* Flexible Main Content Workspace */}
-      <main className="flex-1 min-w-0 p-4 md:p-8 overflow-y-auto">
+      <main
+        className={`flex-1 min-w-0 ${
+          currentView === 'practice'
+            ? 'p-1 sm:p-4 md:p-6 flex flex-col overflow-hidden min-h-0 h-full'
+            : 'p-2.5 sm:p-4 md:p-8 overflow-y-auto'
+        }`}
+      >
         {currentView === 'collections' && (
           <CollectionsView
             islands={islands}
