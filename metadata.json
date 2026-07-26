@@ -1,0 +1,6 @@
+{
+  "name": "TCF Sentence Practice",
+  "description": "Sentence practice application with Island collections, Active Recall, Excel import, Web Speech TTS, and CEFR progress tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
