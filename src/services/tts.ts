@@ -114,13 +114,11 @@ class TTSService {
 
     return sorted.map((v) => {
       const gender = this.detectGender(v.name);
-      const symbol = gender === 'male' ? '👨 ' : gender === 'female' ? '👩 ' : '';
       const score = this.scoreVoice(v);
       const isPremium = score >= 50;
-      const badge = isPremium ? '✨ ' : '';
 
       return {
-        name: `${badge}${symbol}${v.name} (${v.lang})`,
+        name: `${v.name} (${v.lang})`,
         lang: v.lang,
         voiceURI: v.voiceURI,
         gender,

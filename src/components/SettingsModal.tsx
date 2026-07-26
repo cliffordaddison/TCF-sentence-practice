@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserSettings, TextScale, SortOrder, LanguageMode, DisplayMode } from '../types';
 import { ttsService, TTSVoiceOption } from '../services/tts';
-import { Settings, X, Sliders, Volume2, RotateCcw, AlertTriangle, Sparkles, RefreshCw, Smartphone, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Settings, X, Sliders, Volume2, RotateCcw, AlertTriangle, RefreshCw, Info } from 'lucide-react';
 
 interface SettingsModalProps {
   settings: UserSettings;
@@ -18,7 +18,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [frenchVoices, setFrenchVoices] = useState<TTSVoiceOption[]>([]);
   const [englishVoices, setEnglishVoices] = useState<TTSVoiceOption[]>([]);
-  const [showVoiceGuide, setShowVoiceGuide] = useState(false);
   const [justRefreshed, setJustRefreshed] = useState(false);
 
   const loadVoices = () => {
@@ -237,9 +236,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'normal', label: '📋 Normal', desc: 'Both texts' },
-                { id: 'shadowing', label: '🎧 Shadowing', desc: 'French first' },
-                { id: 'recall', label: '💡 Recall', desc: 'English first' },
+                { id: 'normal', label: 'Normal', desc: 'Both texts' },
+                { id: 'shadowing', label: 'Shadowing', desc: 'French first' },
+                { id: 'recall', label: 'Recall', desc: 'English first' },
               ].map((item) => {
                 const isActive = settings.displayMode === item.id;
                 return (
@@ -271,63 +270,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>Text-To-Speech Voices</span>
               </label>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleRefreshVoices}
-                  className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                    justRefreshed
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                      : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border-slate-200'
-                  }`}
-                  title="Reload voices detected on device"
-                >
-                  <RefreshCw className={`w-3 h-3 ${justRefreshed ? 'animate-spin text-emerald-600' : ''}`} />
-                  <span>{justRefreshed ? 'Refreshed!' : 'Refresh List'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowVoiceGuide(!showVoiceGuide)}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                >
-                  <Smartphone className="w-3 h-3" />
-                  <span>iPhone/Android Guide</span>
-                  {showVoiceGuide ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleRefreshVoices}
+                className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                  justRefreshed
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border-slate-200'
+                }`}
+                title="Reload voices detected on device"
+              >
+                <RefreshCw className={`w-3 h-3 ${justRefreshed ? 'animate-spin text-emerald-600' : ''}`} />
+                <span>{justRefreshed ? 'Refreshed!' : 'Refresh List'}</span>
+              </button>
             </div>
-
-            {/* Collapsible Mobile Premium Voice Instructions Card */}
-            {showVoiceGuide && (
-              <div className="bg-gradient-to-br from-slate-900 to-blue-950 text-white rounded-2xl p-4 text-xs space-y-3 border border-blue-800/50 shadow-lg animate-fadeIn">
-                <div className="flex items-center gap-2 font-bold text-amber-300 border-b border-white/10 pb-2">
-                  <Sparkles className="w-4 h-4 shrink-0 text-amber-300" />
-                  <span>How to Enable & Download High-Fidelity iPhone & Android Voices</span>
-                </div>
-
-                <div className="space-y-2 text-slate-200 text-[11px] leading-relaxed">
-                  <div>
-                    <strong className="text-white block font-bold mb-0.5">📱 iPhone / iPad (iOS):</strong>
-                    <ol className="list-decimal list-inside space-y-0.5 pl-1 text-slate-300">
-                      <li>Open <span className="text-blue-300 font-semibold">Settings</span> → <span className="text-blue-300 font-semibold">Accessibility</span> → <span className="text-blue-300 font-semibold">Spoken Content</span> → <span className="text-blue-300 font-semibold">Voices</span>.</li>
-                      <li>Select <span className="text-blue-300 font-semibold">French</span> (or English), then tap a voice like <strong className="text-white">Thomas</strong>, <strong className="text-white">Amélie</strong>, or <strong className="text-white">Audrey</strong>.</li>
-                      <li>Tap <strong className="text-amber-300">"Enhanced"</strong> or <strong className="text-amber-300">"Premium"</strong> to download the crystal-clear voice pack.</li>
-                      <li>Come back here and tap <strong className="text-blue-300">"Refresh List"</strong> above! The new voice will appear marked with <span className="text-amber-300 font-bold">✨</span>.</li>
-                    </ol>
-                  </div>
-
-                  <div className="pt-1.5 border-t border-white/10">
-                    <strong className="text-white block font-bold mb-0.5">🤖 Android Phones:</strong>
-                    <ol className="list-decimal list-inside space-y-0.5 pl-1 text-slate-300">
-                      <li>Open <span className="text-blue-300 font-semibold">Settings</span> → <span className="text-blue-300 font-semibold">Accessibility</span> → <span className="text-blue-300 font-semibold">Text-to-speech output</span>.</li>
-                      <li>Tap gear icon next to <span className="text-blue-300 font-semibold">Speech Services by Google</span> → <span className="text-blue-300 font-semibold">Install voice data</span>.</li>
-                      <li>Choose French/English high-quality natural voices.</li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Voice Dropdowns Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -345,7 +301,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold transition-colors cursor-pointer"
                     >
-                      👨 Male
+                      Male
                     </button>
                     <button
                       type="button"
@@ -355,7 +311,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className="px-2 py-0.5 rounded bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold transition-colors cursor-pointer"
                     >
-                      👩 Female
+                      Female
                     </button>
                   </div>
                 </div>
@@ -389,7 +345,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold transition-colors cursor-pointer"
                     >
-                      👨 Male
+                      Male
                     </button>
                     <button
                       type="button"
@@ -399,7 +355,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className="px-2 py-0.5 rounded bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold transition-colors cursor-pointer"
                     >
-                      👩 Female
+                      Female
                     </button>
                   </div>
                 </div>
@@ -477,7 +433,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm('⚠️ Are you sure you want to hard reset all app data and progress?')) {
+                  if (confirm('Are you sure you want to hard reset all app data and progress?')) {
                     onHardReset();
                   }
                 }}

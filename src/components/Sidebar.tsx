@@ -6,6 +6,7 @@ import {
   Settings,
   PlusCircle,
   Headphones,
+  Flame,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -178,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="bg-gray-800/90 rounded-2xl p-4 border border-gray-700/50">
           <p className="text-xs text-gray-400 mb-1 font-medium">Current Streak</p>
           <p className="text-xl font-bold text-white flex items-center gap-1.5">
-            <span>🔥</span>
+            <Flame className="w-5 h-5 text-orange-500 fill-orange-500 shrink-0" />
             <span>{streakDays} {streakDays === 1 ? 'Day' : 'Days'}</span>
           </p>
         </div>

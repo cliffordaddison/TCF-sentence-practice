@@ -20,13 +20,94 @@ interface StatsViewProps {
   onHardReset: () => void;
 }
 
+// Helper to extract unique words from array of text sentences
+function extractUniqueWordsSet(sentencesText: string[]): Set<string> {
+  const wordSet = new Set<string>();
+  sentencesText.forEach((text) => {
+    if (!text) return;
+    const tokens = text
+      .toLowerCase()
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()?'"’«»]/g, ' ')
+      .split(/\s+/);
+    tokens.forEach((token) => {
+      const clean = token.trim();
+      if (clean.length >= 2 && !/^\d+$/.test(clean)) {
+        wordSet.add(clean);
+      }
+    });
+  });
+  return wordSet;
+}
+
+interface CefrProgress {
+  levelCode: string;
+  levelName: string;
+  targetWords: number;
+  wordCount: number;
+  percent: number;
+}
+
+// Progressive CEFR calculation (A1 -> A2 -> B1 -> B2 -> C1 -> C2)
+function calculateCefrProgress(wordCount: number): CefrProgress {
+  if (wordCount < 1000) {
+    return {
+      levelCode: 'A1',
+      levelName: 'A1 Beginner',
+      targetWords: 1000,
+      wordCount,
+      percent: Math.min(100, Math.round((wordCount / 1000) * 100)),
+    };
+  } else if (wordCount < 2000) {
+    return {
+      levelCode: 'A2',
+      levelName: 'A2 Elementary',
+      targetWords: 2000,
+      wordCount,
+      percent: Math.min(100, Math.round((wordCount / 2000) * 100)),
+    };
+  } else if (wordCount < 4000) {
+    return {
+      levelCode: 'B1',
+      levelName: 'B1 Intermediate',
+      targetWords: 4000,
+      wordCount,
+      percent: Math.min(100, Math.round((wordCount / 4000) * 100)),
+    };
+  } else if (wordCount < 8000) {
+    return {
+      levelCode: 'B2',
+      levelName: 'B2 Upper-Inter.',
+      targetWords: 8000,
+      wordCount,
+      percent: Math.min(100, Math.round((wordCount / 8000) * 100)),
+    };
+  } else if (wordCount < 16000) {
+    return {
+      levelCode: 'C1',
+      levelName: 'C1 Advanced',
+      targetWords: 16000,
+      wordCount,
+      percent: Math.min(100, Math.round((wordCount / 16000) * 100)),
+    };
+  } else {
+    return {
+      levelCode: 'C2',
+      levelName: 'C2 Mastery',
+      targetWords: 32000,
+      wordCount,
+      percent: Math.min(100, Math.round((wordCount / 32000) * 100)),
+    };
+  }
+}
+
 export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardReset }) => {
-  // Compute global metrics across all islands
+  // Compute global metrics across all islands combined
   let totalSentencesCount = 0;
   let totalPracticedCount = 0;
   let totalMasteredCount = 0;
 
-  const allSentencesText: string[] = [];
+  const masteredTargetTexts: string[] = [];
+  const masteredNativeTexts: string[] = [];
 
   islands.forEach((is) => {
     is.sentences.forEach((s) => {
@@ -34,29 +115,21 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
       if (s.practiced || s.reps > 0) totalPracticedCount++;
       if (s.mastered || s.rating === 5) {
         totalMasteredCount++;
-        allSentencesText.push(s.target);
+        masteredTargetTexts.push(s.target);
+        masteredNativeTexts.push(s.native);
       }
     });
   });
 
-  // Calculate unique words learned from mastered sentences
-  const uniqueWordsSet = new Set<string>();
-  allSentencesText.forEach((text) => {
-    const cleaned = text
-      .toLowerCase()
-      .replace(/[.,/#!$%^&*;:{}=\-_`~()?'"']/g, '')
-      .split(/\s+/);
-    cleaned.forEach((w) => {
-      if (w.length > 2) uniqueWordsSet.add(w);
-    });
-  });
-  const totalWordsLearned = uniqueWordsSet.size;
+  // Unique words counted from manually starred / mastered sentences
+  const comprehensionWordsSet = extractUniqueWordsSet(masteredTargetTexts);
+  const speakingWordsSet = extractUniqueWordsSet(masteredNativeTexts);
 
-  // Percentage calculations
-  const comprehensionPercent =
-    totalSentencesCount > 0 ? Math.min(100, Math.round((totalPracticedCount / totalSentencesCount) * 100)) : 0;
-  const speakingPercent =
-    totalSentencesCount > 0 ? Math.min(100, Math.round((totalMasteredCount / totalSentencesCount) * 100)) : 0;
+  const comprehensionWordCount = comprehensionWordsSet.size;
+  const speakingWordCount = speakingWordsSet.size;
+
+  const compProgress = calculateCefrProgress(comprehensionWordCount);
+  const speakProgress = calculateCefrProgress(speakingWordCount);
 
   // Today's metrics
   const todayStr = new Date().toISOString().split('T')[0];
@@ -120,48 +193,48 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
           <div className="space-y-5">
             {/* Comprehension Track */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
                     <Headphones className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">Comprehension Track</h4>
-                    <p className="text-[11px] text-slate-500">Listen & Repeat practice</p>
+                    <p className="text-[11px] text-slate-500">Target language unique words</p>
                   </div>
                 </div>
                 <span className="font-extrabold text-xs text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
-                  {comprehensionPercent}% Completed (A1)
+                  {compProgress.percent}% Completed ({compProgress.levelCode} - {compProgress.wordCount.toLocaleString()} / {compProgress.targetWords.toLocaleString()} words)
                 </span>
               </div>
               <div className="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
                 <div
                   className="bg-blue-600 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${comprehensionPercent}%` }}
+                  style={{ width: `${compProgress.percent}%` }}
                 />
               </div>
             </div>
 
             {/* Speaking Track */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
                     <Lightbulb className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">Speaking Track</h4>
-                    <p className="text-[11px] text-slate-500">Active Recall practice</p>
+                    <p className="text-[11px] text-slate-500">Active recall unique words</p>
                   </div>
                 </div>
                 <span className="font-extrabold text-xs text-teal-700 bg-teal-50 px-2.5 py-1 rounded-md border border-teal-200">
-                  {speakingPercent}% Completed (A1)
+                  {speakProgress.percent}% Completed ({speakProgress.levelCode} - {speakProgress.wordCount.toLocaleString()} / {speakProgress.targetWords.toLocaleString()} words)
                 </span>
               </div>
               <div className="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
                 <div
                   className="bg-teal-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${speakingPercent}%` }}
+                  style={{ width: `${speakProgress.percent}%` }}
                 />
               </div>
             </div>
@@ -183,8 +256,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <span className="text-2xl font-black text-amber-600">{totalWordsLearned}</span>
-              <p className="text-xs font-bold text-slate-600 mt-1">Words Learned</p>
+              <span className="text-2xl font-black text-amber-600">{comprehensionWordCount}</span>
+              <p className="text-xs font-bold text-slate-600 mt-1">Unique Words Learned</p>
               <p className="text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-100">
                 From mastered cards
               </p>
@@ -292,7 +365,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
         <div className="pt-6 border-t border-slate-200 text-center space-y-2">
           <button
             onClick={() => {
-              if (confirm('⚠️ This will delete all your progress data and reset islands permanently. Are you sure?')) {
+              if (confirm('This will delete all your progress data and reset islands permanently. Are you sure?')) {
                 onHardReset();
               }
             }}
