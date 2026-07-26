@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserSettings, TextScale, SortOrder, LanguageMode } from '../types';
+import { UserSettings, TextScale, SortOrder, LanguageMode, DisplayMode } from '../types';
 import { ttsService } from '../services/tts';
 import { Settings, X, Sliders, Volume2, RotateCcw, AlertTriangle } from 'lucide-react';
 
@@ -202,6 +202,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }`}
                   >
                     {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Display Mode Selector */}
+          <div>
+            <label className="block text-xs font-extrabold text-slate-700 tracking-wider uppercase mb-2">
+              Card Display Mode
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'normal', label: '📋 Normal', desc: 'Both texts' },
+                { id: 'shadowing', label: '🎧 Shadowing', desc: 'French first' },
+                { id: 'recall', label: '💡 Recall', desc: 'English first' },
+              ].map((item) => {
+                const isActive = settings.displayMode === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onUpdateSettings({ ...settings, displayMode: item.id as DisplayMode })}
+                    className={`p-2.5 rounded-xl font-bold text-xs transition-all text-center ${
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span className="block">{item.label}</span>
+                    <span className={`block text-[10px] mt-0.5 ${
+                      isActive ? 'text-blue-100' : 'text-slate-400'
+                    }`}>{item.desc}</span>
                   </button>
                 );
               })}

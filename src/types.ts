@@ -25,6 +25,11 @@ export interface Island {
   createdAt: number;
 }
 
+// 'normal' = default view (both texts visible)
+// 'shadowing' = Headphones mode: shows French (target), tap to reveal English (native)
+// 'recall' = Lightbulb mode: shows English (native), tap to reveal French (target)
+export type DisplayMode = 'normal' | 'shadowing' | 'recall';
+
 export interface UserSettings {
   repetitionCount: number; // 1, 2, 3, 4, 5
   pauseDuration: number; // e.g. 0.5, 1, 2, 3, 5, 7 seconds
@@ -35,7 +40,7 @@ export interface UserSettings {
   nativeVoiceURI: string;
   sortOrder: SortOrder;
   loopPlayback: boolean;
-  activeRecallMode: boolean;
+  displayMode: DisplayMode; // replaces activeRecallMode
   showTargetText: boolean;
 }
 

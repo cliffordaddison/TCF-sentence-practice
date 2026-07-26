@@ -12,6 +12,8 @@ import {
   recordRepetition,
   hardResetAllData,
   getDefaultIslands,
+  getDefaultSettings,
+  getDefaultStats,
   DEFAULT_SETTINGS,
   DEFAULT_STATS,
 } from './services/storage';
@@ -147,9 +149,11 @@ export default function App() {
     ttsService.stop();
     hardResetAllData();
     const freshDefaults = getDefaultIslands();
+    const freshSettings = getDefaultSettings();
+    const freshStats = getDefaultStats();
     setIslands(freshDefaults);
-    setSettings(DEFAULT_SETTINGS);
-    setStats(DEFAULT_STATS);
+    setSettings(freshSettings);
+    setStats(freshStats);
     setActiveIslandId(freshDefaults[0].id);
     setCurrentView('collections');
     setIsSettingsOpen(false);

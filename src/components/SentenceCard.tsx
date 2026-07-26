@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sentence, TextScale } from '../types';
+import { Sentence, TextScale, DisplayMode } from '../types';
 import { Volume2, Star, Eye, CheckCircle2, Bookmark, Trash2, Languages, BarChart3 } from 'lucide-react';
 
 interface SentenceCardProps {
@@ -8,7 +8,7 @@ interface SentenceCardProps {
   isSelected: boolean;
   isCurrentlyPlaying?: boolean;
   activeRepInfo?: string;
-  isActiveRecall: boolean;
+  displayMode: DisplayMode;
   showTargetText: boolean;
   textSize: TextScale;
   onToggleSelect: (sentenceId: string) => void;
@@ -25,7 +25,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
   isSelected,
   isCurrentlyPlaying,
   activeRepInfo,
-  isActiveRecall,
+  displayMode,
   showTargetText,
   textSize,
   onToggleSelect,
@@ -48,6 +48,69 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
     // Avoid double-click triggering if user double-clicks star or button
     if ((e.target as HTMLElement).closest('button')) return;
     onToggleSelect(sentence.id);
+  };
+
+  // Render text content based on display mode
+  const renderTextContent = () => {
+    if (displayMode === 'shadowing') {
+      // Headphones mode: Show French (target), tap/translate reveals English (native)
+      return (
+        <div>
+          <p className={`text-lg font-bold text-gray-900 mb-0.5 leading-snug ${textClasses}`}>
+            {sentence.target}
+          </p>
+          {isRevealed ? (
+            <p className={`text-gray-500 text-xs font-normal leading-normal animate-fadeIn`}>
+              {sentence.native}
+            </p>
+          ) : (
+            <button
+              onClick={() => setIsRevealed(true)}
+              className="text-sm font-semibold text-blue-500 hover:text-blue-700 italic cursor-pointer underline decoration-dotted transition-colors flex items-center gap-1"
+            >
+              <Languages className="w-3.5 h-3.5" />
+              <span>Tap to reveal translation</span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    if (displayMode === 'recall') {
+      // Lightbulb mode: Show English (native), tap/translate reveals French (target)
+      return (
+        <div>
+          <p className={`text-gray-900 text-base font-semibold mb-1 leading-snug ${textClasses}`}>
+            {sentence.native}
+          </p>
+          {isRevealed ? (
+            <p className={`text-lg font-bold text-blue-600 ${textClasses} animate-fadeIn`}>
+              {sentence.target}
+            </p>
+          ) : (
+            <button
+              onClick={() => setIsRevealed(true)}
+              className="text-sm font-semibold text-blue-500 hover:text-blue-700 italic cursor-pointer underline decoration-dotted transition-colors flex items-center gap-1"
+            >
+              <Languages className="w-3.5 h-3.5" />
+              <span>Tap to reveal French</span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // Normal mode: Show both texts
+    return (
+      <div>
+        {showTargetText && (
+          <p className={`text-lg font-bold text-gray-900 mb-0.5 leading-snug ${textClasses}`}>
+            {sentence.target}
+          </p>
+        )}
+        <p className="text-gray-500 text-xs font-normal leading-normal">{sentence.native}</p>
+      </div>
+    );
   };
 
   return (
@@ -87,34 +150,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
           </div>
 
           <div className="flex-1 min-w-0 pl-1">
-            {isActiveRecall ? (
-              <div>
-                <p className={`text-gray-900 text-base font-semibold mb-1 leading-snug ${textClasses}`}>
-                  {sentence.native}
-                </p>
-                {isRevealed || showTargetText ? (
-                  <p className={`text-lg font-bold text-blue-600 ${textClasses} animate-fadeIn`}>
-                    {sentence.target}
-                  </p>
-                ) : (
-                  <button
-                    onClick={() => setIsRevealed(true)}
-                    className="text-sm font-semibold text-blue-500 hover:text-blue-700 italic cursor-pointer underline decoration-dotted transition-colors"
-                  >
-                    Tap to reveal
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div>
-                {showTargetText && (
-                  <p className={`text-lg font-bold text-gray-900 mb-0.5 leading-snug ${textClasses}`}>
-                    {sentence.target}
-                  </p>
-                )}
-                <p className="text-gray-500 text-xs font-normal leading-normal">{sentence.native}</p>
-              </div>
-            )}
+            {renderTextContent()}
 
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {isCurrentlyPlaying && (
@@ -173,7 +209,19 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
             </button>
           )}
 
-          {onTranslateSentence && (!sentence.native || sentence.native === sentence.target) && (
+          {/* In shadowing or recall mode, show a translate/reveal button */}
+          {displayMode !== 'normal' && !isRevealed && (
+            <button
+              onClick={() => setIsRevealed(true)}
+              className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+              title={displayMode === 'shadowing' ? 'Reveal English translation' : 'Reveal French text'}
+            >
+              <Languages className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* In normal mode, show translate button if native is missing */}
+          {displayMode === 'normal' && onTranslateSentence && (!sentence.native || sentence.native === sentence.target) && (
             <button
               onClick={() => onTranslateSentence(sentence.id)}
               className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"

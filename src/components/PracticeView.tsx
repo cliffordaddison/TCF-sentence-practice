@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Island, Sentence, UserSettings, LanguageMode } from '../types';
+import { Island, Sentence, UserSettings, LanguageMode, DisplayMode } from '../types';
 import { SentenceCard } from './SentenceCard';
 import { ttsService } from '../services/tts';
 import { translateToEnglish } from '../services/translator';
@@ -430,12 +430,13 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
             <div className="flex items-center space-x-1 text-gray-400">
               <button
-                onClick={() =>
-                  onUpdateSettings({ ...settings, activeRecallMode: !settings.activeRecallMode })
-                }
-                title="Audio Shadowing / Headphones"
+                onClick={() => {
+                  const newMode = settings.displayMode === 'shadowing' ? 'normal' : 'shadowing';
+                  onUpdateSettings({ ...settings, displayMode: newMode });
+                }}
+                title="Shadowing Mode (French shown, tap to reveal English)"
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                  settings.activeRecallMode
+                  settings.displayMode === 'shadowing'
                     ? 'bg-blue-100 text-blue-600 font-bold'
                     : 'hover:bg-gray-200 text-gray-500'
                 }`}
@@ -444,12 +445,13 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               </button>
 
               <button
-                onClick={() =>
-                  onUpdateSettings({ ...settings, activeRecallMode: !settings.activeRecallMode })
-                }
-                title="Active Recall Mode"
+                onClick={() => {
+                  const newMode = settings.displayMode === 'recall' ? 'normal' : 'recall';
+                  onUpdateSettings({ ...settings, displayMode: newMode });
+                }}
+                title="Active Recall Mode (English shown, tap to reveal French)"
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                  settings.activeRecallMode
+                  settings.displayMode === 'recall'
                     ? 'bg-indigo-100 text-indigo-600 font-bold'
                     : 'hover:bg-gray-200 text-gray-500'
                 }`}
@@ -597,7 +599,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                     isSelected={isSelected}
                     isCurrentlyPlaying={isCurrentlyPlaying}
                     activeRepInfo={activeRepInfo}
-                    isActiveRecall={settings.activeRecallMode}
+                    displayMode={settings.displayMode}
                     showTargetText={settings.showTargetText}
                     textSize={settings.textSize}
                     onToggleSelect={handleToggleSelect}

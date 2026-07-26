@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   nativeVoiceURI: '',
   sortOrder: 'original',
   loopPlayback: true,
-  activeRecallMode: false,
+  displayMode: 'normal',
   showTargetText: true,
 };
 
@@ -105,14 +105,18 @@ export function loadIslands(): Island[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.ISLANDS);
     if (!data) {
-      saveIslands(DEFAULT_ISLANDS);
-      return DEFAULT_ISLANDS;
+      const defaults = getDefaultIslands();
+      saveIslands(defaults);
+      return defaults;
     }
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_ISLANDS;
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    const defaults = getDefaultIslands();
+    saveIslands(defaults);
+    return defaults;
   } catch (err) {
     console.error('Failed to load islands:', err);
-    return DEFAULT_ISLANDS;
+    return getDefaultIslands();
   }
 }
 
@@ -127,11 +131,17 @@ export function saveIslands(islands: Island[]): void {
 export function loadUserSettings(): UserSettings {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    if (!data) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+    if (!data) return { ...DEFAULT_SETTINGS };
+    const parsed = JSON.parse(data);
+    // Migrate old activeRecallMode to new displayMode
+    if ('activeRecallMode' in parsed && !('displayMode' in parsed)) {
+      parsed.displayMode = parsed.activeRecallMode ? 'recall' : 'normal';
+      delete parsed.activeRecallMode;
+    }
+    return { ...DEFAULT_SETTINGS, ...parsed };
   } catch (err) {
     console.error('Failed to load settings:', err);
-    return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS };
   }
 }
 
@@ -146,11 +156,11 @@ export function saveUserSettings(settings: UserSettings): void {
 export function loadUserStats(): UserStats {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.STATS);
-    if (!data) return DEFAULT_STATS;
+    if (!data) return { ...DEFAULT_STATS, dailyStats: {} };
     return { ...DEFAULT_STATS, ...JSON.parse(data) };
   } catch (err) {
     console.error('Failed to load stats:', err);
-    return DEFAULT_STATS;
+    return { ...DEFAULT_STATS, dailyStats: {} };
   }
 }
 
@@ -189,21 +199,50 @@ export function recordRepetition(timeAddedSeconds = 3): void {
 }
 
 export function getDefaultIslands(): Island[] {
-  return JSON.parse(JSON.stringify(DEFAULT_ISLANDS));
+  // Deep clone and assign fresh timestamps so defaults are truly independent
+  const cloned: Island[] = JSON.parse(JSON.stringify(DEFAULT_ISLANDS));
+  const now = Date.now();
+  cloned.forEach((island, idx) => {
+    island.createdAt = now - (cloned.length - idx) * 1000;
+    island.sentences.forEach((s) => {
+      s.rating = 0;
+      s.reps = 0;
+      s.practiced = false;
+      s.mastered = false;
+      s.isFavorite = false;
+    });
+  });
+  return cloned;
+}
+
+export function getDefaultSettings(): UserSettings {
+  return { ...DEFAULT_SETTINGS };
+}
+
+export function getDefaultStats(): UserStats {
+  return { totalReps: 0, totalTimeSeconds: 0, dailyStats: {} };
 }
 
 export function hardResetAllData(): void {
+  // Remove all app keys explicitly first
   try {
-    localStorage.clear();
-  } catch (e) {
     localStorage.removeItem(STORAGE_KEYS.ISLANDS);
     localStorage.removeItem(STORAGE_KEYS.SETTINGS);
     localStorage.removeItem(STORAGE_KEYS.STATS);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_ISLAND_ID);
-  }
+  } catch (_) { /* ignore */ }
+
+  // Also try full clear as backup
+  try {
+    localStorage.clear();
+  } catch (_) { /* ignore */ }
+
+  // Save fresh defaults
   const defaults = getDefaultIslands();
+  const freshSettings = getDefaultSettings();
+  const freshStats = getDefaultStats();
   saveIslands(defaults);
-  saveUserSettings(DEFAULT_SETTINGS);
-  saveUserStats(DEFAULT_STATS);
+  saveUserSettings(freshSettings);
+  saveUserStats(freshStats);
   saveActiveIslandId(defaults[0].id);
 }
