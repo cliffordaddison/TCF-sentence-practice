@@ -7,6 +7,7 @@ export interface TTSVoiceOption {
   lang: string;
   voiceURI: string;
   gender: VoiceGender;
+  isPremium: boolean;
 }
 
 class TTSService {
@@ -24,7 +25,15 @@ class TTSService {
       if ('onvoiceschanged' in this.synth) {
         this.synth.onvoiceschanged = () => this.loadVoices();
       }
+      // Mobile Safari / iOS fallback check
+      setTimeout(() => this.loadVoices(), 500);
+      setTimeout(() => this.loadVoices(), 1500);
     }
+  }
+
+  public refreshVoices(): SpeechSynthesisVoice[] {
+    this.loadVoices();
+    return this.voices;
   }
 
   private loadVoices() {
@@ -61,18 +70,61 @@ class TTSService {
     return 'neutral';
   }
 
+  private scoreVoice(v: SpeechSynthesisVoice): number {
+    let score = 0;
+    const name = v.name.toLowerCase();
+    const uri = v.voiceURI.toLowerCase();
+
+    // Premium / High Quality indicators
+    if (name.includes('premium') || uri.includes('premium')) score += 100;
+    if (name.includes('enhanced') || uri.includes('enhanced')) score += 90;
+    if (name.includes('natural') || uri.includes('natural')) score += 80;
+    if (name.includes('siri') || uri.includes('siri')) score += 70;
+    if (name.includes('google') || uri.includes('google')) score += 60;
+    if (name.includes('network') || uri.includes('network')) score += 50;
+
+    // Popular high-fidelity natural iOS & Windows voices
+    if (
+      name.includes('thomas') ||
+      name.includes('amélie') ||
+      name.includes('amelie') ||
+      name.includes('audrey') ||
+      name.includes('marie') ||
+      name.includes('daniel') ||
+      name.includes('samantha') ||
+      name.includes('aurelie')
+    ) {
+      score += 30;
+    }
+
+    // Penalize compact/low-quality robot fallbacks
+    if (name.includes('compact') || uri.includes('compact')) score -= 50;
+
+    if (v.localService) score += 10;
+
+    return score;
+  }
+
   public getAvailableVoices(): TTSVoiceOption[] {
     if (this.voices.length === 0 && this.synth) {
       this.loadVoices();
     }
-    return this.voices.map((v) => {
+
+    const sorted = [...this.voices].sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
+
+    return sorted.map((v) => {
       const gender = this.detectGender(v.name);
       const symbol = gender === 'male' ? '👨 ' : gender === 'female' ? '👩 ' : '';
+      const score = this.scoreVoice(v);
+      const isPremium = score >= 50;
+      const badge = isPremium ? '✨ ' : '';
+
       return {
-        name: `${symbol}${v.name} (${v.lang})`,
+        name: `${badge}${symbol}${v.name} (${v.lang})`,
         lang: v.lang,
         voiceURI: v.voiceURI,
         gender,
+        isPremium,
       };
     });
   }
@@ -91,40 +143,52 @@ class TTSService {
 
   public getFrenchMaleVoice(): SpeechSynthesisVoice | null {
     if (!this.voices.length && this.synth) this.loadVoices();
-    const frVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('fr'));
+    const frVoices = [...this.voices]
+      .filter((v) => v.lang.toLowerCase().startsWith('fr'))
+      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
+
     return (
       frVoices.find((v) => this.detectGender(v.name) === 'male') ||
-      frVoices.find((v) => v.name.toLowerCase().includes('thomas') || v.name.toLowerCase().includes('paul') || v.name.toLowerCase().includes('daniel')) ||
+      frVoices[0] ||
       this.getDefaultVoice('fr')
     );
   }
 
   public getFrenchFemaleVoice(): SpeechSynthesisVoice | null {
     if (!this.voices.length && this.synth) this.loadVoices();
-    const frVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('fr'));
+    const frVoices = [...this.voices]
+      .filter((v) => v.lang.toLowerCase().startsWith('fr'))
+      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
+
     return (
       frVoices.find((v) => this.detectGender(v.name) === 'female') ||
-      frVoices.find((v) => v.name.toLowerCase().includes('amélie') || v.name.toLowerCase().includes('hortense') || v.name.toLowerCase().includes('julie')) ||
+      frVoices[0] ||
       this.getDefaultVoice('fr')
     );
   }
 
   public getEnglishMaleVoice(): SpeechSynthesisVoice | null {
     if (!this.voices.length && this.synth) this.loadVoices();
-    const enVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    const enVoices = [...this.voices]
+      .filter((v) => v.lang.toLowerCase().startsWith('en'))
+      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
+
     return (
       enVoices.find((v) => this.detectGender(v.name) === 'male') ||
-      enVoices.find((v) => v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('alex')) ||
+      enVoices[0] ||
       this.getDefaultVoice('en')
     );
   }
 
   public getEnglishFemaleVoice(): SpeechSynthesisVoice | null {
     if (!this.voices.length && this.synth) this.loadVoices();
-    const enVoices = this.voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    const enVoices = [...this.voices]
+      .filter((v) => v.lang.toLowerCase().startsWith('en'))
+      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
+
     return (
       enVoices.find((v) => this.detectGender(v.name) === 'female') ||
-      enVoices.find((v) => v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('victoria')) ||
+      enVoices[0] ||
       this.getDefaultVoice('en')
     );
   }
@@ -136,22 +200,11 @@ class TTSService {
     if (!this.voices.length) return null;
 
     const prefix = lang === 'fr' ? 'fr' : 'en';
-    const matches = this.voices.filter((v) => v.lang.toLowerCase().startsWith(prefix));
+    const matches = this.voices
+      .filter((v) => v.lang.toLowerCase().startsWith(prefix))
+      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
 
-    // Preferred high-quality voices
-    const preferred = matches.find(
-      (v) =>
-        v.name.includes('Google') ||
-        v.name.includes('Natural') ||
-        v.name.includes('Enhanced') ||
-        v.name.includes('Thomas') ||
-        v.name.includes('Amélie') ||
-        v.name.includes('Samantha') ||
-        v.name.includes('Aurelie') ||
-        v.name.includes('Daniel')
-    );
-
-    return preferred || matches[0] || this.voices[0] || null;
+    return matches[0] || this.voices[0] || null;
   }
 
   public getVoiceByURI(voiceURI: string): SpeechSynthesisVoice | null {
