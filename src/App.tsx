@@ -53,6 +53,18 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleNavigate = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (customEvent.detail === 'stats') {
+        setCurrentView('stats');
+      }
+    };
+
+    window.addEventListener('app:navigate', handleNavigate as EventListener);
+    return () => window.removeEventListener('app:navigate', handleNavigate as EventListener);
+  }, []);
+
   // Save changes to localStorage
   const handleUpdateIslands = (updatedIslands: Island[]) => {
     setIslands(updatedIslands);
@@ -71,26 +83,32 @@ export default function App() {
   };
 
   const handleUpdateSentence = (islandId: string, updatedSentence: Sentence) => {
-    const nextIslands = islands.map((island) => {
-      if (island.id !== islandId) return island;
-      const updatedSentences = island.sentences.map((s) =>
-        s.id === updatedSentence.id ? updatedSentence : s
-      );
-      return { ...island, sentences: updatedSentences };
+    setIslands((prevIslands) => {
+      const nextIslands = prevIslands.map((island) => {
+        if (island.id !== islandId) return island;
+        const updatedSentences = island.sentences.map((s) =>
+          s.id === updatedSentence.id ? updatedSentence : s
+        );
+        return { ...island, sentences: updatedSentences };
+      });
+      saveIslands(nextIslands);
+      return nextIslands;
     });
-    handleUpdateIslands(nextIslands);
     setStats(loadUserStats());
   };
 
   const handleDeleteSentence = (islandId: string, sentenceId: string) => {
-    const nextIslands = islands.map((island) => {
-      if (island.id !== islandId) return island;
-      return {
-        ...island,
-        sentences: island.sentences.filter((s) => s.id !== sentenceId),
-      };
+    setIslands((prevIslands) => {
+      const nextIslands = prevIslands.map((island) => {
+        if (island.id !== islandId) return island;
+        return {
+          ...island,
+          sentences: island.sentences.filter((s) => s.id !== sentenceId),
+        };
+      });
+      saveIslands(nextIslands);
+      return nextIslands;
     });
-    handleUpdateIslands(nextIslands);
   };
 
   const handleAddSentence = (islandId: string, target: string, native: string) => {
@@ -103,19 +121,25 @@ export default function App() {
       practiced: false,
       mastered: false,
     };
-    const nextIslands = islands.map((island) => {
-      if (island.id !== islandId) return island;
-      return {
-        ...island,
-        sentences: [...island.sentences, newSentence],
-      };
+    setIslands((prevIslands) => {
+      const nextIslands = prevIslands.map((island) => {
+        if (island.id !== islandId) return island;
+        return {
+          ...island,
+          sentences: [...island.sentences, newSentence],
+        };
+      });
+      saveIslands(nextIslands);
+      return nextIslands;
     });
-    handleUpdateIslands(nextIslands);
   };
 
   const handleImportIslands = (newIslands: Island[]) => {
-    const nextIslands = [...newIslands, ...islands];
-    handleUpdateIslands(nextIslands);
+    setIslands((prevIslands) => {
+      const nextIslands = [...newIslands, ...prevIslands];
+      saveIslands(nextIslands);
+      return nextIslands;
+    });
     if (newIslands.length > 0) {
       handleSelectIsland(newIslands[0]);
     }
@@ -135,14 +159,17 @@ export default function App() {
   };
 
   const handleDeleteIsland = (islandId: string) => {
-    const nextIslands = islands.filter((i) => i.id !== islandId);
-    handleUpdateIslands(nextIslands);
-    if (activeIslandId === islandId) {
-      setActiveIslandId(nextIslands[0]?.id || null);
-      if (currentView === 'practice') {
-        setCurrentView('collections');
+    setIslands((prevIslands) => {
+      const nextIslands = prevIslands.filter((i) => i.id !== islandId);
+      saveIslands(nextIslands);
+      if (activeIslandId === islandId) {
+        setActiveIslandId(nextIslands[0]?.id || null);
+        if (currentView === 'practice') {
+          setCurrentView('collections');
+        }
       }
-    }
+      return nextIslands;
+    });
   };
 
   const handleHardReset = () => {

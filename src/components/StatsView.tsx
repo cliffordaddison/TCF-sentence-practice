@@ -62,6 +62,13 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
   const todayStr = new Date().toISOString().split('T')[0];
   const todayData = stats.dailyStats[todayStr] || { reps: 0, sentencesTouched: 0, timeSeconds: 0 };
 
+  const getLocalDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // 7-day chart data
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weekData: Array<{ day: string; reps: number }> = [];
@@ -70,7 +77,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
-    const dateKey = d.toISOString().split('T')[0];
+    const dateKey = getLocalDateKey(d);
     const dayLabel = daysOfWeek[d.getDay()];
     const dayReps = stats.dailyStats[dateKey]?.reps || 0;
     weekData.push({ day: dayLabel, reps: dayReps });
@@ -271,6 +278,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ islands, stats, onHardRese
             </span>
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
               <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> B2 Upper-Inter. (8,000+ words)
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" /> C1 Advanced (16,000+ words)
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-500" /> C2 Mastery (32,000+ words)
             </span>
           </div>
         </div>

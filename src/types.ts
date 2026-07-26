@@ -44,6 +44,13 @@ export interface UserSettings {
   showTargetText: boolean;
 }
 
+export interface PracticeSessionState {
+  displayMode: DisplayMode;
+  currentIndex: number;
+  anchorId?: string | null;
+  selectedIds?: string[];
+}
+
 export interface DailyStat {
   reps: number;
   sentencesTouched: number;

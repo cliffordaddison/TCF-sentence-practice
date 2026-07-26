@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sentence, TextScale, DisplayMode } from '../types';
 import { Volume2, Star, CheckCircle2, Bookmark, Trash2, Languages, BarChart3 } from 'lucide-react';
 
@@ -6,36 +6,61 @@ interface SentenceCardProps {
   sentence: Sentence;
   index: number;
   isSelected: boolean;
+  isAnchor?: boolean;
   isCurrentlyPlaying?: boolean;
   activeRepInfo?: string;
   displayMode: DisplayMode;
   showTargetText: boolean;
   textSize: TextScale;
+  isSelectionMode?: boolean;
   onToggleSelect: (sentenceId: string) => void;
   onSpeak: (sentence: Sentence) => void;
   onRate: (sentenceId: string, rating: number) => void;
   onToggleFavorite?: (sentenceId: string) => void;
   onDeleteSentence?: (sentenceId: string) => void;
   onTranslateSentence?: (sentenceId: string) => void;
+  onDoubleClick?: (sentenceId: string) => void;
 }
 
 export const SentenceCard: React.FC<SentenceCardProps> = ({
   sentence,
   index,
   isSelected,
+  isAnchor,
   isCurrentlyPlaying,
   activeRepInfo,
   displayMode,
   showTargetText,
   textSize,
+  isSelectionMode,
   onToggleSelect,
   onSpeak,
   onRate,
   onToggleFavorite,
   onDeleteSentence,
   onTranslateSentence,
+  onDoubleClick,
 }) => {
   const [isRevealed, setIsRevealed] = useState(false);
+  const revealTimerRef = useRef<number | null>(null);
+  const clickTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!showTargetText) {
+      setIsRevealed(false);
+    }
+  }, [showTargetText]);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) {
+        window.clearTimeout(clickTimerRef.current);
+      }
+      if (revealTimerRef.current) {
+        window.clearTimeout(revealTimerRef.current);
+      }
+    };
+  }, []);
 
   const textClasses = {
     sm: 'text-sm',
@@ -44,23 +69,50 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
     xl: 'text-xl',
   }[textSize];
 
-  const handleCardDoubleClick = (e: React.MouseEvent) => {
-    // Avoid double-click triggering if user double-clicks star or button
+  const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
-    onToggleSelect(sentence.id);
+    if (revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+
+    if (clickTimerRef.current) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      return;
+    }
+
+    clickTimerRef.current = window.setTimeout(() => {
+      clickTimerRef.current = null;
+      onToggleSelect(sentence.id);
+    }, 220);
   };
+
+  const handleCardDoubleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+    if (clickTimerRef.current) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+    onDoubleClick?.(sentence.id);
+  };
+
+  const isTranslationVisible = showTargetText || isRevealed;
 
   // Render text content based on display mode
   const renderTextContent = () => {
     if (displayMode === 'shadowing') {
-      // Headphones mode: Show French (target), tap/translate reveals English (native)
       return (
         <div>
           <p className={`text-lg font-bold text-gray-900 mb-0.5 leading-snug ${textClasses}`}>
             {sentence.target}
           </p>
-          {isRevealed ? (
-            <p className={`text-gray-500 text-xs font-normal leading-normal animate-fadeIn`}>
+          {isTranslationVisible ? (
+            <p className={`text-base font-semibold text-blue-700 leading-normal animate-fadeIn ${textClasses}`}>
               {sentence.native}
             </p>
           ) : (
@@ -77,14 +129,13 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
     }
 
     if (displayMode === 'recall') {
-      // Lightbulb mode: Show English (native), tap/translate reveals French (target)
       return (
         <div>
           <p className={`text-gray-900 text-base font-semibold mb-1 leading-snug ${textClasses}`}>
             {sentence.native}
           </p>
-          {isRevealed ? (
-            <p className={`text-lg font-bold text-blue-600 ${textClasses} animate-fadeIn`}>
+          {isTranslationVisible ? (
+            <p className={`text-base font-semibold text-blue-700 ${textClasses} animate-fadeIn`}>
               {sentence.target}
             </p>
           ) : (
@@ -100,7 +151,6 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
       );
     }
 
-    // Normal mode: Show both texts
     return (
       <div>
         {showTargetText && (
@@ -116,10 +166,13 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
   return (
     <div
       id={`sentence-card-${sentence.id}`}
+      onClick={handleCardClick}
       onDoubleClick={handleCardDoubleClick}
       className={`relative rounded-2xl p-4 md:p-5 transition-all duration-200 select-none ${
         isCurrentlyPlaying
           ? 'bg-[#EFF6FF] border-2 border-blue-500 shadow-md ring-2 ring-blue-400/20'
+          : isAnchor
+          ? 'bg-amber-50 border-2 border-amber-400 shadow-sm'
           : isSelected
           ? 'bg-blue-50/40 border-2 border-blue-400 shadow-sm'
           : 'bg-white border border-emerald-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs'
@@ -210,7 +263,7 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({
           )}
 
           {/* In shadowing or recall mode, show a translate/reveal button */}
-          {displayMode !== 'normal' && !isRevealed && (
+          {displayMode !== 'normal' && !isTranslationVisible && (
             <button
               onClick={() => setIsRevealed(true)}
               className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"

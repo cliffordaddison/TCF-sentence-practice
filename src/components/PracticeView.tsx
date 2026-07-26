@@ -15,7 +15,12 @@ import {
   SlidersHorizontal,
   Plus,
   Trash2,
+  Star,
+  Play,
+  Pause,
+  Languages,
 } from 'lucide-react';
+import { loadIslandPracticeState, saveIslandPracticeState } from '../services/storage';
 
 interface PracticeViewProps {
   island: Island;
@@ -47,11 +52,23 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(0);
+  const [playbackAnchorId, setPlaybackAnchorId] = useState<string | null>(null);
   const [activeRepCounter, setActiveRepCounter] = useState<number>(0);
   const [searchFilter, setSearchFilter] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'favorites' | 'unpracticed'>('all');
   const [timeframe, setTimeframe] = useState<'session' | 'lifetime'>('session');
   const [sessionReps, setSessionReps] = useState(0);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isRatingsOpen, setIsRatingsOpen] = useState(false);
+  const [ratingsTab, setRatingsTab] = useState<'filter' | 'rate-all'>('filter');
+  const [ratingsFilter, setRatingsFilter] = useState<'all' | 'unrated'>('all');
+  const [ratingCriteria, setRatingCriteria] = useState<{
+    minimum?: number;
+    maximum?: number;
+    exact?: number;
+  }>({});
+  const [rateAllSelection, setRateAllSelection] = useState<number | null>(null);
 
   // Quick Add Tile state
   const [isAddingCard, setIsAddingCard] = useState(false);
@@ -60,6 +77,30 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   const [isTranslatingNewCard, setIsTranslatingNewCard] = useState(false);
 
   const isAutoPlayLoopingRef = useRef(false);
+
+  useEffect(() => {
+    const savedState = loadIslandPracticeState(island.id);
+    if (savedState) {
+      onUpdateSettings({ ...settings, displayMode: savedState.displayMode });
+      setCurrentQueueIndex(Math.max(0, Math.min(savedState.currentIndex, island.sentences.length - 1)));
+      if (savedState.anchorId) {
+        setPlaybackAnchorId(savedState.anchorId);
+      }
+      if (savedState.selectedIds && savedState.selectedIds.length > 0) {
+        setSelectedIds(savedState.selectedIds);
+        setSelectionMode(true);
+      }
+    }
+  }, [island.id]);
+
+  useEffect(() => {
+    saveIslandPracticeState(island.id, {
+      displayMode: settings.displayMode,
+      currentIndex: Math.max(0, currentQueueIndex),
+      anchorId: playbackAnchorId,
+      selectedIds,
+    });
+  }, [island.id, settings.displayMode, currentQueueIndex, playbackAnchorId, selectedIds]);
 
   // Derive active sentence list
   let activeSentences = island.sentences.filter((s) => {
@@ -74,6 +115,24 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     return true;
   });
 
+  const applyRatingsFilter = (sentence: Sentence) => {
+    if (ratingsFilter === 'unrated') {
+      if (sentence.rating > 0) return false;
+    }
+    if (ratingCriteria.minimum !== undefined && sentence.rating < ratingCriteria.minimum) {
+      return false;
+    }
+    if (ratingCriteria.maximum !== undefined && sentence.rating > ratingCriteria.maximum) {
+      return false;
+    }
+    if (ratingCriteria.exact !== undefined && sentence.rating !== ratingCriteria.exact) {
+      return false;
+    }
+    return true;
+  };
+
+  activeSentences = activeSentences.filter(applyRatingsFilter);
+
   // Sort queue according to setting
   if (settings.sortOrder === 'easy_hard') {
     activeSentences = [...activeSentences].sort((a, b) => a.rating - b.rating);
@@ -87,18 +146,58 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
       ? activeSentences.filter((s) => selectedIds.includes(s.id))
       : activeSentences;
 
+  const getQueueStartIndex = (queue: Sentence[]) => {
+    if (!playbackAnchorId) return 0;
+    const anchorIndex = queue.findIndex((sentence) => sentence.id === playbackAnchorId);
+    return anchorIndex >= 0 ? anchorIndex : 0;
+  };
+
   const handleToggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    const hasActiveSelection = selectionMode || selectedIds.length > 0;
+
+    if (hasActiveSelection) {
+      setSelectedIds((prev) => {
+        const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+        if (next.length === 0) {
+          setPlaybackAnchorId(null);
+          setSelectionMode(false);
+        } else {
+          setSelectionMode(true);
+          setPlaybackAnchorId(id);
+        }
+        return next;
+      });
+      return;
+    }
+
+    setPlaybackAnchorId(id);
+    const queue = selectedIds.length > 0
+      ? activeSentences.filter((sentence) => selectedIds.includes(sentence.id))
+      : activeSentences;
+    const anchorIndex = queue.findIndex((sentence) => sentence.id === id);
+    if (anchorIndex >= 0) {
+      queueIndexRef.current = anchorIndex;
+      setCurrentQueueIndex(anchorIndex);
+    }
+    setSelectionMode(false);
+  };
+
+  const handleCardDoubleClick = (id: string) => {
+    setSelectionMode(true);
+    setSelectedIds((prev) => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      if (next.length > 0) {
+        setPlaybackAnchorId(id);
+      }
+      return next;
+    });
   };
 
   const handleSpeakSingleCard = async (sentence: Sentence) => {
-    // Record rep and update sentence
     onRecordRepetition();
     setSessionReps((prev) => prev + 1);
 
-    const updated = { ...sentence, reps: sentence.reps + 1, practiced: true };
+    const updated = { ...sentence, reps: (sentence.reps || 0) + 1, practiced: true };
     onUpdateSentence(island.id, updated);
 
     await ttsService.speakSentence(sentence, {
@@ -113,9 +212,34 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     const original = island.sentences.find((s) => s.id === sentenceId);
     if (!original) return;
 
-    const isNowMastered = rating === 5;
-    const updated = { ...original, rating, mastered: isNowMastered };
+    const nextRating = original.rating === rating ? 0 : rating;
+    const updated = { ...original, rating: nextRating, mastered: nextRating === 5 };
     onUpdateSentence(island.id, updated);
+  };
+
+  const handleApplyBulkRating = () => {
+    if (rateAllSelection === null) return;
+    const visibleIds = activeSentences.map((sentence) => sentence.id);
+    visibleIds.forEach((id) => {
+      const original = island.sentences.find((s) => s.id === id);
+      if (!original) return;
+      const updated = { ...original, rating: rateAllSelection, mastered: rateAllSelection === 5 };
+      onUpdateSentence(island.id, updated);
+    });
+    setIsRatingsOpen(false);
+    setRateAllSelection(null);
+  };
+
+  const handleClearVisibleRatings = () => {
+    const visibleIds = activeSentences.map((sentence) => sentence.id);
+    visibleIds.forEach((id) => {
+      const original = island.sentences.find((s) => s.id === id);
+      if (!original) return;
+      const updated = { ...original, rating: 0, mastered: false };
+      onUpdateSentence(island.id, updated);
+    });
+    setIsRatingsOpen(false);
+    setRateAllSelection(null);
   };
 
   const handleToggleFavorite = (sentenceId: string) => {
@@ -208,6 +332,11 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
         }
 
         let idx = queueIndexRef.current;
+        if (idx < 0 || idx >= queue.length) {
+          idx = getQueueStartIndex(queue);
+          queueIndexRef.current = idx;
+          setCurrentQueueIndex(idx);
+        }
         if (idx >= queue.length) {
           if (settingsRef.current.loopPlayback) {
             idx = 0;
@@ -285,17 +414,50 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
   }, [isPlaying]);
 
   const toggleAutoPlay = () => {
+    if (isPaused) {
+      setIsPaused(false);
+      setIsPlaying(true);
+      return;
+    }
+
     if (isPlaying) {
       isAutoPlayRef.current = false;
+      setIsPaused(true);
       setIsPlaying(false);
       ttsService.stop();
-    } else {
-      queueIndexRef.current = 0;
-      setCurrentQueueIndex(0);
-      repCounterRef.current = 0;
-      setActiveRepCounter(0);
-      setIsPlaying(true);
+      return;
     }
+
+    const queue = playbackQueue;
+    const startIndex = getQueueStartIndex(queue);
+    queueIndexRef.current = startIndex;
+    setCurrentQueueIndex(startIndex);
+    repCounterRef.current = 0;
+    setActiveRepCounter(0);
+    setIsPaused(false);
+    setIsPlaying(true);
+  };
+
+  const handlePlaySelection = () => {
+    if (selectedIds.length === 0) return;
+    setSelectionMode(true);
+    const queue = playbackQueue;
+    const startIndex = getQueueStartIndex(queue);
+    queueIndexRef.current = startIndex;
+    setCurrentQueueIndex(startIndex);
+    repCounterRef.current = 0;
+    setActiveRepCounter(0);
+    setIsPaused(false);
+    setIsPlaying(true);
+  };
+
+  const handleCloseSelectionSession = () => {
+    setSelectionMode(false);
+    setSelectedIds([]);
+    setPlaybackAnchorId(null);
+    setIsPaused(false);
+    setIsPlaying(false);
+    ttsService.stop();
   };
 
   const handleSaveSubBatch = () => {
@@ -378,8 +540,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
-                <span>{isPlaying ? '⏸' : '▶'}</span>
-                <span>{isPlaying ? 'Pause' : 'Rep'}</span>
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                <span>{isPaused ? 'Resume' : isPlaying ? 'Pause' : 'Rep'}</span>
               </button>
 
               <select
@@ -414,8 +576,9 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
             <div className="flex items-center space-x-1 text-gray-400">
               <button
                 onClick={() => {
-                  const newMode = settings.displayMode === 'shadowing' ? 'normal' : 'shadowing';
-                  onUpdateSettings({ ...settings, displayMode: newMode });
+                  if (settings.displayMode !== 'shadowing') {
+                    onUpdateSettings({ ...settings, displayMode: 'shadowing' });
+                  }
                 }}
                 title="Shadowing Mode (French shown, tap to reveal English)"
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
@@ -429,8 +592,9 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
 
               <button
                 onClick={() => {
-                  const newMode = settings.displayMode === 'recall' ? 'normal' : 'recall';
-                  onUpdateSettings({ ...settings, displayMode: newMode });
+                  if (settings.displayMode !== 'recall') {
+                    onUpdateSettings({ ...settings, displayMode: 'recall' });
+                  }
                 }}
                 title="Active Recall Mode (English shown, tap to reveal French)"
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
@@ -455,7 +619,7 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                     : 'hover:bg-gray-200 text-gray-500'
                 }`}
               >
-                <span className="font-bold text-xs select-none">文A</span>
+                <Languages className="w-4.5 h-4.5" />
               </button>
 
               <select
@@ -467,6 +631,14 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                 <option value="unpracticed">Unpracticed</option>
                 <option value="favorites">Favorites</option>
               </select>
+
+              <button
+                onClick={() => setIsRatingsOpen(true)}
+                className="p-2 hover:bg-gray-200 text-gray-500 hover:text-gray-800 rounded-xl transition-colors cursor-pointer"
+                title="Ratings"
+              >
+                <Star className="w-4.5 h-4.5" />
+              </button>
 
               <button
                 onClick={onOpenSettings}
@@ -580,12 +752,15 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
                     sentence={sentence}
                     index={index}
                     isSelected={isSelected}
+                    isAnchor={playbackAnchorId === sentence.id}
                     isCurrentlyPlaying={isCurrentlyPlaying}
                     activeRepInfo={activeRepInfo}
                     displayMode={settings.displayMode}
                     showTargetText={settings.showTargetText}
                     textSize={settings.textSize}
+                    isSelectionMode={selectionMode}
                     onToggleSelect={handleToggleSelect}
+                    onDoubleClick={handleCardDoubleClick}
                     onSpeak={handleSpeakSingleCard}
                     onRate={handleRateSentence}
                     onToggleFavorite={handleToggleFavorite}
@@ -643,7 +818,11 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
             </div>
 
             <button
-              onClick={() => setTimeframe(timeframe === 'session' ? 'lifetime' : 'session')}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('app:navigate', { detail: 'stats' }));
+                }
+              }}
               className="mt-4 w-full pt-3 border-t border-gray-100 text-xs font-bold text-gray-600 hover:text-blue-600 flex items-center justify-between transition-colors cursor-pointer"
             >
               <span className="flex items-center gap-2">
@@ -726,6 +905,18 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
         </aside>
       </div>
 
+      {selectionMode && selectedIds.length > 0 && (
+        <div className="fixed top-4 right-4 z-[60]">
+          <button
+            onClick={handleCloseSelectionSession}
+            className="rounded-full bg-white/90 border border-gray-200 text-gray-700 shadow-lg px-3 py-2 text-sm font-semibold"
+            title="Close selection session"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Floating Selection Bar */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-[600px] bg-[#111625] text-white py-3 px-6 rounded-full flex items-center justify-between shadow-2xl border border-white/10 z-50 animate-fadeIn">
@@ -734,10 +925,10 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
           </p>
           <div className="flex items-center space-x-3">
             <button
-              onClick={toggleAutoPlay}
+              onClick={handlePlaySelection}
               className="bg-red-500 hover:bg-red-600 px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1.5"
             >
-              <span>▶</span> Play Selection
+              <Play className="w-3.5 h-3.5" /> Play Selection
             </button>
             <button
               onClick={handleSaveSubBatch}
@@ -746,12 +937,176 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               Save
             </button>
             <button
-              onClick={() => setSelectedIds([])}
+              onClick={() => {
+                setSelectedIds([]);
+                setSelectionMode(false);
+              }}
               className="bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors text-white"
               title="Clear Selection"
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {isRatingsOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-xl rounded-[28px] bg-white p-6 shadow-2xl border border-gray-200">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                  <Star className="h-6 w-6 fill-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Ratings</h3>
+                  <p className="text-sm text-gray-500">Filter the list, or rate every sentence at once</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsRatingsOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100"
+                title="Close ratings"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex rounded-full bg-gray-100 p-1">
+              <button
+                onClick={() => setRatingsTab('filter')}
+                className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${ratingsTab === 'filter' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              >
+                Filter
+              </button>
+              <button
+                onClick={() => setRatingsTab('rate-all')}
+                className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${ratingsTab === 'rate-all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              >
+                Rate all
+              </button>
+            </div>
+
+            {ratingsTab === 'filter' ? (
+              <div className="mt-6 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setRatingsFilter('all')}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${ratingsFilter === 'all' ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600'}`}
+                  >
+                    All Ratings
+                  </button>
+                  <button
+                    onClick={() => setRatingsFilter('unrated')}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${ratingsFilter === 'unrated' ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600'}`}
+                  >
+                    Unrated
+                  </button>
+                </div>
+                <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">Minimum rating (≥)</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[5,4,3,2,1].map((value) => {
+                        const colorClass = value >= 4 ? 'text-emerald-600' : value === 3 ? 'text-amber-600' : 'text-rose-600';
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => setRatingCriteria((prev) => ({ ...prev, minimum: value }))}
+                            className={`rounded-full px-3 py-2 text-sm font-semibold ${ratingCriteria.minimum === value ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                          >
+                            <span className={`inline-flex items-center gap-1 ${ratingCriteria.minimum === value ? 'text-white' : colorClass}`}>
+                              <Star className="h-3.5 w-3.5 fill-current" />
+                              {value}+ 
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">Maximum rating (≤)</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[4,3,2,1].map((value) => {
+                        const colorClass = value >= 4 ? 'text-emerald-600' : value === 3 ? 'text-amber-600' : 'text-rose-600';
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => setRatingCriteria((prev) => ({ ...prev, maximum: value }))}
+                            className={`rounded-full px-3 py-2 text-sm font-semibold ${ratingCriteria.maximum === value ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                          >
+                            <span className={`inline-flex items-center gap-1 ${ratingCriteria.maximum === value ? 'text-white' : colorClass}`}>
+                              <Star className="h-3.5 w-3.5 fill-current" />
+                              {value}-
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">Exact rating (=)</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[4,3,2,1].map((value) => {
+                        const colorClass = value >= 4 ? 'text-emerald-600' : value === 3 ? 'text-amber-600' : 'text-rose-600';
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => setRatingCriteria((prev) => ({ ...prev, exact: value }))}
+                            className={`rounded-full px-3 py-2 text-sm font-semibold ${ratingCriteria.exact === value ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                          >
+                            <span className={`inline-flex items-center gap-1 ${ratingCriteria.exact === value ? 'text-white' : colorClass}`}>
+                              <Star className="h-3.5 w-3.5 fill-current" />
+                              Exactly {value}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-5">
+                <p className="text-center text-sm text-gray-500">Apply one rating to all visible sentences</p>
+                <div className="flex justify-center gap-2">
+                  {[1,2,3,4,5].map((value) => (
+                    <button
+                      key={value}
+                      onClick={() => setRateAllSelection(value)}
+                      className="rounded-full border border-gray-200 bg-white p-3 text-amber-400 hover:text-amber-500"
+                    >
+                      <Star className={`h-8 w-8 ${rateAllSelection !== null && value <= rateAllSelection ? 'fill-amber-400' : 'fill-none'}`} />
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleClearVisibleRatings}
+                    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear ratings
+                  </button>
+                </div>
+                <p className="text-center text-sm text-gray-500">Applies to all {activeSentences.length} · {island.name}</p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setIsRatingsOpen(false)}
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleApplyBulkRating}
+                    disabled={rateAllSelection === null}
+                    className={`rounded-full px-5 py-2.5 text-sm font-semibold ${rateAllSelection === null ? 'bg-gray-200 text-gray-500' : 'bg-blue-600 text-white'}`}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

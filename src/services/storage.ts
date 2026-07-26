@@ -1,10 +1,11 @@
-import { Island, UserSettings, UserStats } from '../types';
+import { Island, PracticeSessionState, UserSettings, UserStats } from '../types';
 
 const STORAGE_KEYS = {
   ISLANDS: 'tcf_trainer_islands_v1',
   SETTINGS: 'tcf_trainer_settings_v1',
   STATS: 'tcf_trainer_stats_v1',
   ACTIVE_ISLAND_ID: 'tcf_trainer_active_island_v1',
+  PRACTICE_STATE: 'tcf_trainer_practice_state_v1',
 };
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -17,7 +18,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   nativeVoiceURI: '',
   sortOrder: 'original',
   loopPlayback: true,
-  displayMode: 'normal',
+  displayMode: 'shadowing',
   showTargetText: true,
 };
 
@@ -180,6 +181,37 @@ export function saveActiveIslandId(id: string): void {
   localStorage.setItem(STORAGE_KEYS.ACTIVE_ISLAND_ID, id);
 }
 
+export function loadPracticeState(): Record<string, PracticeSessionState> {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.PRACTICE_STATE);
+    if (!data) return {};
+    const parsed = JSON.parse(data);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    console.error('Failed to load practice state:', err);
+    return {};
+  }
+}
+
+export function savePracticeState(state: Record<string, PracticeSessionState>): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_STATE, JSON.stringify(state));
+  } catch (err) {
+    console.error('Failed to save practice state:', err);
+  }
+}
+
+export function loadIslandPracticeState(islandId: string): PracticeSessionState | null {
+  const state = loadPracticeState();
+  return state[islandId] || null;
+}
+
+export function saveIslandPracticeState(islandId: string, state: PracticeSessionState): void {
+  const current = loadPracticeState();
+  current[islandId] = state;
+  savePracticeState(current);
+}
+
 export function recordRepetition(timeAddedSeconds = 3): void {
   const stats = loadUserStats();
   const today = new Date().toISOString().split('T')[0];
@@ -230,6 +262,7 @@ export function hardResetAllData(): void {
     localStorage.removeItem(STORAGE_KEYS.SETTINGS);
     localStorage.removeItem(STORAGE_KEYS.STATS);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_ISLAND_ID);
+    localStorage.removeItem(STORAGE_KEYS.PRACTICE_STATE);
   } catch (_) { /* ignore */ }
 
   // Also try full clear as backup
