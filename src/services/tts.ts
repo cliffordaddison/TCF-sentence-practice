@@ -93,19 +93,11 @@ class TTSService {
   }
 
   /**
-   * Pitch for preferred gender when the engine only exposes a neutral/wrong-gender voice
-   * (common on Android Chrome). Leave natural pitch when a real matching voice is selected.
+   * Always use natural pitch (1.0) so voices sound clean and human
+   * without robotic distortion or chipmunking from Web Speech API pitch shifting.
    */
   public resolvePitch(voice: SpeechSynthesisVoice | null, preferred: VoiceGenderPreference): number {
-    const detected = voice ? this.detectVoiceGender(voice) : 'neutral';
-    if (preferred === 'male') {
-      if (detected === 'male') return 1.0;
-      // Neutral/female Android locale voice → deepen toward male
-      return detected === 'female' ? 0.7 : 0.78;
-    }
-    if (detected === 'female') return 1.0;
-    if (detected === 'male') return 1.2;
-    return 1.05;
+    return 1.0;
   }
 
   private scoreVoice(v: SpeechSynthesisVoice): number {
@@ -227,22 +219,23 @@ class TTSService {
   }
 
   /**
-   * Prefer a real gendered pack when the engine exposes one (Android fr-fr-x-frd, iOS Thomas, etc.).
-   * Otherwise keep the user's saved URI / best available — pitch handles the rest.
+   * Respect the user's saved/selected voice URI first. If none saved or not found on this device,
+   * select the best matching voice for the preferred gender.
    */
   private resolveVoice(
     lang: 'en' | 'fr',
     savedURI: string | undefined,
     gender: VoiceGenderPreference
   ): SpeechSynthesisVoice | null {
-    const matches = this.filterByLang(lang);
-    const gendered = matches.find((v) => this.detectVoiceGender(v) === gender);
-    if (gendered) return gendered;
-
     if (savedURI) {
       const saved = this.getVoiceByURI(savedURI);
       if (saved) return saved;
     }
+
+    const matches = this.filterByLang(lang);
+    const gendered = matches.find((v) => this.detectVoiceGender(v) === gender);
+    if (gendered) return gendered;
+
     return matches[0] || this.getDefaultVoice(lang);
   }
 

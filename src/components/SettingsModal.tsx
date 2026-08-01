@@ -288,8 +288,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-[11px] text-slate-600 leading-relaxed">
               <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
               <p>
-                Free device voices only. On Android, tap <span className="font-bold">Male</span> to use a male French pack when available, or a deepened pitch if Chrome only exposes one French voice.
-                On iPhone, Enhanced/Premium Accessibility packs do not appear in Safari — <span className="font-bold">Male</span> usually selects Thomas.
+                Uses free high-fidelity device voices. You can toggle between <span className="font-bold">Male</span> and <span className="font-bold">Female</span> voices or choose a specific installed voice pack from the dropdown below. Voices speak at a natural pitch without robotic frequency shifting.
               </p>
             </div>
 
