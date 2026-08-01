@@ -52,6 +52,8 @@ export interface Island {
 // 'recall' = Lightbulb mode: shows English (native), tap to reveal French (target)
 export type DisplayMode = 'normal' | 'shadowing' | 'recall';
 
+export type VoiceGenderPreference = 'male' | 'female';
+
 export interface UserSettings {
   repetitionCount: number; // 1, 2, 3, 4, 5
   pauseDuration: number; // e.g. 0.5, 1, 2, 3, 5, 7 seconds
@@ -60,6 +62,10 @@ export interface UserSettings {
   languageMode: LanguageMode;
   targetVoiceURI: string;
   nativeVoiceURI: string;
+  /** Preferred French voice gender (Android often needs pitch when no male pack is exposed) */
+  targetVoiceGender: VoiceGenderPreference;
+  /** Preferred English voice gender */
+  nativeVoiceGender: VoiceGenderPreference;
   sortOrder: SortOrder;
   loopPlayback: boolean;
   displayMode: DisplayMode; // replaces activeRecallMode

@@ -21,7 +21,6 @@ import {
   Languages,
 } from 'lucide-react';
 import { loadIslandPracticeState, saveIslandPracticeState } from '../services/storage';
-import { audioSession } from '../services/audioSession';
 
 interface PracticeViewProps {
   island: Island;
@@ -205,6 +204,8 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
       playbackSpeed: settings.playbackSpeed,
       targetVoiceURI: settings.targetVoiceURI,
       nativeVoiceURI: settings.nativeVoiceURI,
+      targetVoiceGender: settings.targetVoiceGender,
+      nativeVoiceGender: settings.nativeVoiceGender,
     });
   };
 
@@ -438,19 +439,14 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
         const currentSentence = queue[idx];
         if (!currentSentence) break;
 
-        // Update MediaSession lockscreen metadata
-        audioSession.updateMediaSession({
-          title: currentSentence.target,
-          artist: currentSentence.native,
-          album: islandRef.current.name || 'Language Practice',
-        });
-
         // Speak current sentence (English first, French second in en_fr mode)
         await ttsService.speakSentence(currentSentence, {
           languageMode: settingsRef.current.languageMode,
           playbackSpeed: settingsRef.current.playbackSpeed,
           targetVoiceURI: settingsRef.current.targetVoiceURI,
           nativeVoiceURI: settingsRef.current.nativeVoiceURI,
+          targetVoiceGender: settingsRef.current.targetVoiceGender,
+          nativeVoiceGender: settingsRef.current.nativeVoiceGender,
         });
 
         if (!isAutoPlayRef.current || cancelToken) break;
@@ -491,54 +487,16 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     };
 
     if (isPlaying) {
-      const activeSentence = playbackQueue[currentQueueIndex];
-      audioSession.startSession(
-        {
-          title: activeSentence ? activeSentence.target : island.name,
-          artist: activeSentence ? activeSentence.native : 'Repetition Practice',
-          album: island.name,
-        },
-        {
-          onPlay: () => setIsPlaying(true),
-          onPause: () => {
-            isAutoPlayRef.current = false;
-            setIsPlaying(false);
-            ttsService.stop();
-          },
-          onNext: () => {
-            const queue = queueRef.current;
-            if (!queue || queue.length === 0) return;
-            const nextIdx = (queueIndexRef.current + 1) % queue.length;
-            queueIndexRef.current = nextIdx;
-            setCurrentQueueIndex(nextIdx);
-            repCounterRef.current = 0;
-            setActiveRepCounter(0);
-            ttsService.stop();
-          },
-          onPrev: () => {
-            const queue = queueRef.current;
-            if (!queue || queue.length === 0) return;
-            const prevIdx = (queueIndexRef.current - 1 + queue.length) % queue.length;
-            queueIndexRef.current = prevIdx;
-            setCurrentQueueIndex(prevIdx);
-            repCounterRef.current = 0;
-            setActiveRepCounter(0);
-            ttsService.stop();
-          },
-        }
-      );
       startLoop();
     } else {
       isAutoPlayRef.current = false;
       ttsService.stop();
-      audioSession.stopSession();
     }
 
     return () => {
       cancelToken = true;
       isAutoPlayRef.current = false;
       ttsService.stop();
-      audioSession.stopSession();
     };
   }, [isPlaying]);
 
@@ -704,27 +662,18 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const currentVoice = ttsService.getVoiceByURI(settings.targetVoiceURI);
-                  const isMale = currentVoice ? ttsService.detectGender(currentVoice.name) === 'male' : false;
-                  if (isMale) {
-                    const femaleVoice = ttsService.getFrenchFemaleVoice();
-                    if (femaleVoice) onUpdateSettings({ ...settings, targetVoiceURI: femaleVoice.voiceURI });
-                  } else {
-                    const maleVoice = ttsService.getFrenchMaleVoice();
-                    if (maleVoice) onUpdateSettings({ ...settings, targetVoiceURI: maleVoice.voiceURI });
-                  }
+                  const nextGender = settings.targetVoiceGender === 'male' ? 'female' : 'male';
+                  const voice = ttsService.getVoiceForGender('fr', nextGender);
+                  onUpdateSettings({
+                    ...settings,
+                    targetVoiceGender: nextGender,
+                    targetVoiceURI: voice?.voiceURI || settings.targetVoiceURI,
+                  });
                 }}
                 title="Switch Target Voice Gender (Male / Female)"
                 className="bg-white border border-purple-200 hover:border-purple-400 rounded-xl sm:rounded-2xl px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-700 flex items-center space-x-1 cursor-pointer shadow-xs transition-colors shrink-0"
               >
-                <span>
-                  {(() => {
-                    const currentVoice = ttsService.getVoiceByURI(settings.targetVoiceURI);
-                    return currentVoice && ttsService.detectGender(currentVoice.name) === 'male'
-                      ? 'Male'
-                      : 'Female';
-                  })()}
-                </span>
+                <span>{settings.targetVoiceGender === 'male' ? 'Male' : 'Female'}</span>
               </button>
             </div>
 

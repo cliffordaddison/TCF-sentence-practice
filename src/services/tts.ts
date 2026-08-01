@@ -1,4 +1,4 @@
-import { LanguageMode, Sentence } from '../types';
+import { LanguageMode, Sentence, VoiceGenderPreference } from '../types';
 
 export type VoiceGender = 'male' | 'female' | 'neutral';
 
@@ -25,7 +25,7 @@ class TTSService {
       if ('onvoiceschanged' in this.synth) {
         this.synth.onvoiceschanged = () => this.loadVoices();
       }
-      // Mobile Safari / iOS fallback check
+      // Mobile Safari / iOS / Android Chrome fallback — voices often load late
       setTimeout(() => this.loadVoices(), 500);
       setTimeout(() => this.loadVoices(), 1500);
     }
@@ -52,22 +52,60 @@ class TTSService {
     }
   }
 
-  public detectGender(name: string): VoiceGender {
-    const lower = name.toLowerCase();
+  /** Detect gender from voice name and URI (includes Android Google TTS codes). */
+  public detectGender(name: string, voiceURI = ''): VoiceGender {
+    const lower = `${name} ${voiceURI}`.toLowerCase();
+
+    // Android / Chrome OS Google TTS native IDs (most reliable on Android)
+    // FR male: frd, frb | FR female: frc, fra, vlf | CA male: cab, cad | CA female: caa, cac
+    if (/fr-fr-x-fr[db]\b/.test(lower) || /fr-ca-x-ca[bd]\b/.test(lower)) return 'male';
+    if (/fr-fr-x-fr[ac]\b/.test(lower) || /fr-fr-x-vlf\b/.test(lower) || /fr-ca-x-ca[ac]\b/.test(lower)) {
+      return 'female';
+    }
+
+    // Chrome OS / Android display names: "Google français 3/5" = male, "1/2/4" = female
+    if (/fran[cç]ais\s*[35]\b/.test(lower) || /french\s*[35]\b/.test(lower)) return 'male';
+    if (/fran[cç]ais\s*[124]\b/.test(lower) || /french\s*[124]\b/.test(lower)) return 'female';
+
+    if (/#male\b|\bmasculine\b|\bmasculin\b|\bhomme\b|\bmale\b/.test(lower)) return 'male';
+    if (/#female\b|\bfeminine\b|\bféminin\b|\bfeminin\b|\bfemme\b|\bfemale\b/.test(lower)) return 'female';
+
     const maleNames = [
-      'male', 'homme', 'thomas', 'paul', 'daniel', 'nicolas', 'claude', 'david', 'mark', 'george', 'fred',
+      'thomas', 'paul', 'daniel', 'nicolas', 'claude', 'david', 'mark', 'george', 'fred',
       'alex', 'james', 'richard', 'gordon', 'arthur', 'remy', 'henri', 'pierre', 'alain', 'bruno', 'gilles',
-      'jacques', 'mathieu', 'philippe', 'jean', 'steve', 'microsoft paul', 'microsoft david', 'microsoft mark'
+      'jacques', 'mathieu', 'philippe', 'jean', 'steve', 'gerard', 'fabrice', 'antoine', 'thierry',
+      'microsoft paul', 'microsoft david', 'microsoft mark', 'microsoft henri', 'microsoft remy',
     ];
     const femaleNames = [
-      'female', 'femme', 'amélie', 'amelie', 'aurelie', 'aurélie', 'hortense', 'julie', 'virginie', 'celine',
+      'amélie', 'amelie', 'aurelie', 'aurélie', 'hortense', 'julie', 'virginie', 'celine',
       'samantha', 'victoria', 'karen', 'fiona', 'moira', 'zira', 'denise', 'marie', 'claire', 'genevieve',
-      'audrey', 'chloe', 'chloë', 'lea', 'léa', 'manon', 'florence', 'microsoft zira', 'microsoft hortense', 'microsoft julie'
+      'audrey', 'chloe', 'chloë', 'lea', 'léa', 'manon', 'florence', 'vivienne', 'charline', 'ariane',
+      'eloise', 'sylvie', 'chantal', 'aude', 'microsoft zira', 'microsoft hortense', 'microsoft julie',
     ];
 
     if (maleNames.some((m) => lower.includes(m))) return 'male';
     if (femaleNames.some((f) => lower.includes(f))) return 'female';
     return 'neutral';
+  }
+
+  public detectVoiceGender(v: SpeechSynthesisVoice): VoiceGender {
+    return this.detectGender(v.name, v.voiceURI);
+  }
+
+  /**
+   * Pitch for preferred gender when the engine only exposes a neutral/wrong-gender voice
+   * (common on Android Chrome). Leave natural pitch when a real matching voice is selected.
+   */
+  public resolvePitch(voice: SpeechSynthesisVoice | null, preferred: VoiceGenderPreference): number {
+    const detected = voice ? this.detectVoiceGender(voice) : 'neutral';
+    if (preferred === 'male') {
+      if (detected === 'male') return 1.0;
+      // Neutral/female Android locale voice → deepen toward male
+      return detected === 'female' ? 0.7 : 0.78;
+    }
+    if (detected === 'female') return 1.0;
+    if (detected === 'male') return 1.2;
+    return 1.05;
   }
 
   private scoreVoice(v: SpeechSynthesisVoice): number {
@@ -82,6 +120,7 @@ class TTSService {
     if (name.includes('siri') || uri.includes('siri')) score += 70;
     if (name.includes('google') || uri.includes('google')) score += 60;
     if (name.includes('network') || uri.includes('network')) score += 50;
+    if (uri.includes('-local') || name.includes('-local')) score += 40;
 
     // Popular high-fidelity natural iOS & Windows voices
     if (
@@ -97,12 +136,23 @@ class TTSService {
       score += 30;
     }
 
+    // Prefer known Android male French packs when ranking
+    if (/fr-fr-x-fr[db]\b/.test(uri) || /fr-fr-x-fr[db]\b/.test(name)) score += 45;
+    if (/fr-ca-x-ca[bd]\b/.test(uri) || /fr-ca-x-ca[bd]\b/.test(name)) score += 40;
+
     // Penalize compact/low-quality robot fallbacks
     if (name.includes('compact') || uri.includes('compact')) score -= 50;
 
     if (v.localService) score += 10;
 
     return score;
+  }
+
+  private filterByLang(prefix: 'fr' | 'en'): SpeechSynthesisVoice[] {
+    if (!this.voices.length && this.synth) this.loadVoices();
+    return [...this.voices]
+      .filter((v) => v.lang.toLowerCase().startsWith(prefix))
+      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
   }
 
   public getAvailableVoices(): TTSVoiceOption[] {
@@ -113,12 +163,13 @@ class TTSService {
     const sorted = [...this.voices].sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
 
     return sorted.map((v) => {
-      const gender = this.detectGender(v.name);
+      const gender = this.detectVoiceGender(v);
       const score = this.scoreVoice(v);
       const isPremium = score >= 50;
+      const genderTag = gender === 'neutral' ? '' : ` · ${gender}`;
 
       return {
-        name: `${v.name} (${v.lang})`,
+        name: `${v.name} (${v.lang})${genderTag}`,
         lang: v.lang,
         voiceURI: v.voiceURI,
         gender,
@@ -140,55 +191,59 @@ class TTSService {
   }
 
   public getFrenchMaleVoice(): SpeechSynthesisVoice | null {
-    if (!this.voices.length && this.synth) this.loadVoices();
-    const frVoices = [...this.voices]
-      .filter((v) => v.lang.toLowerCase().startsWith('fr'))
-      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
-
-    return (
-      frVoices.find((v) => this.detectGender(v.name) === 'male') ||
-      frVoices[0] ||
-      this.getDefaultVoice('fr')
-    );
+    const frVoices = this.filterByLang('fr');
+    return frVoices.find((v) => this.detectVoiceGender(v) === 'male') || null;
   }
 
   public getFrenchFemaleVoice(): SpeechSynthesisVoice | null {
-    if (!this.voices.length && this.synth) this.loadVoices();
-    const frVoices = [...this.voices]
-      .filter((v) => v.lang.toLowerCase().startsWith('fr'))
-      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
-
+    const frVoices = this.filterByLang('fr');
     return (
-      frVoices.find((v) => this.detectGender(v.name) === 'female') ||
+      frVoices.find((v) => this.detectVoiceGender(v) === 'female') ||
       frVoices[0] ||
       this.getDefaultVoice('fr')
     );
   }
 
   public getEnglishMaleVoice(): SpeechSynthesisVoice | null {
-    if (!this.voices.length && this.synth) this.loadVoices();
-    const enVoices = [...this.voices]
-      .filter((v) => v.lang.toLowerCase().startsWith('en'))
-      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
+    const enVoices = this.filterByLang('en');
+    return enVoices.find((v) => this.detectVoiceGender(v) === 'male') || null;
+  }
 
+  public getEnglishFemaleVoice(): SpeechSynthesisVoice | null {
+    const enVoices = this.filterByLang('en');
     return (
-      enVoices.find((v) => this.detectGender(v.name) === 'male') ||
+      enVoices.find((v) => this.detectVoiceGender(v) === 'female') ||
       enVoices[0] ||
       this.getDefaultVoice('en')
     );
   }
 
-  public getEnglishFemaleVoice(): SpeechSynthesisVoice | null {
-    if (!this.voices.length && this.synth) this.loadVoices();
-    const enVoices = [...this.voices]
-      .filter((v) => v.lang.toLowerCase().startsWith('en'))
-      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
+  /** Best voice for a language + preferred gender (falls back to best available). */
+  public getVoiceForGender(lang: 'en' | 'fr', gender: VoiceGenderPreference): SpeechSynthesisVoice | null {
+    const matches = this.filterByLang(lang);
+    const gendered = matches.find((v) => this.detectVoiceGender(v) === gender);
+    if (gendered) return gendered;
+    return matches[0] || this.getDefaultVoice(lang);
+  }
 
-    return (
-      enVoices.find((v) => this.detectGender(v.name) === 'female') ||
-      enVoices[0] ||
-      this.getDefaultVoice('en')
-    );
+  /**
+   * Prefer a real gendered pack when the engine exposes one (Android fr-fr-x-frd, iOS Thomas, etc.).
+   * Otherwise keep the user's saved URI / best available — pitch handles the rest.
+   */
+  private resolveVoice(
+    lang: 'en' | 'fr',
+    savedURI: string | undefined,
+    gender: VoiceGenderPreference
+  ): SpeechSynthesisVoice | null {
+    const matches = this.filterByLang(lang);
+    const gendered = matches.find((v) => this.detectVoiceGender(v) === gender);
+    if (gendered) return gendered;
+
+    if (savedURI) {
+      const saved = this.getVoiceByURI(savedURI);
+      if (saved) return saved;
+    }
+    return matches[0] || this.getDefaultVoice(lang);
   }
 
   public getDefaultVoice(lang: 'en' | 'fr'): SpeechSynthesisVoice | null {
@@ -197,11 +252,7 @@ class TTSService {
     }
     if (!this.voices.length) return null;
 
-    const prefix = lang === 'fr' ? 'fr' : 'en';
-    const matches = this.voices
-      .filter((v) => v.lang.toLowerCase().startsWith(prefix))
-      .sort((a, b) => this.scoreVoice(b) - this.scoreVoice(a));
-
+    const matches = this.filterByLang(lang);
     return matches[0] || this.voices[0] || null;
   }
 
@@ -262,6 +313,8 @@ class TTSService {
       playbackSpeed: number;
       targetVoiceURI?: string;
       nativeVoiceURI?: string;
+      targetVoiceGender?: VoiceGenderPreference;
+      nativeVoiceGender?: VoiceGenderPreference;
       onEnd?: () => void;
       onError?: (err: any) => void;
     }
@@ -278,36 +331,59 @@ class TTSService {
       this.isPlaying = true;
 
       const rate = Math.max(0.5, Math.min(2.0, options.playbackSpeed));
+      const frGender = options.targetVoiceGender || 'female';
+      const enGender = options.nativeVoiceGender || 'female';
 
-      // Resolve voices
-      const frVoice = options.targetVoiceURI
-        ? this.getVoiceByURI(options.targetVoiceURI) || this.getDefaultVoice('fr')
-        : this.getDefaultVoice('fr');
-
-      const enVoice = options.nativeVoiceURI
-        ? this.getVoiceByURI(options.nativeVoiceURI) || this.getDefaultVoice('en')
-        : this.getDefaultVoice('en');
+      const frVoice = this.resolveVoice('fr', options.targetVoiceURI, frGender);
+      const enVoice = this.resolveVoice('en', options.nativeVoiceURI, enGender);
 
       const speakParts: Array<{
         text: string;
         voice: SpeechSynthesisVoice | null;
         defaultLang: string;
+        pitch: number;
       }> = [];
 
       if (options.languageMode === 'en_fr') {
-        // English first, French second
-        speakParts.push({ text: sentence.native, voice: enVoice, defaultLang: 'en-US' });
-        speakParts.push({ text: sentence.target, voice: frVoice, defaultLang: 'fr-FR' });
+        speakParts.push({
+          text: sentence.native,
+          voice: enVoice,
+          defaultLang: 'en-US',
+          pitch: this.resolvePitch(enVoice, enGender),
+        });
+        speakParts.push({
+          text: sentence.target,
+          voice: frVoice,
+          defaultLang: 'fr-FR',
+          pitch: this.resolvePitch(frVoice, frGender),
+        });
       } else if (options.languageMode === 'fr_en') {
-        // French first, English second
-        speakParts.push({ text: sentence.target, voice: frVoice, defaultLang: 'fr-FR' });
-        speakParts.push({ text: sentence.native, voice: enVoice, defaultLang: 'en-US' });
+        speakParts.push({
+          text: sentence.target,
+          voice: frVoice,
+          defaultLang: 'fr-FR',
+          pitch: this.resolvePitch(frVoice, frGender),
+        });
+        speakParts.push({
+          text: sentence.native,
+          voice: enVoice,
+          defaultLang: 'en-US',
+          pitch: this.resolvePitch(enVoice, enGender),
+        });
       } else if (options.languageMode === 'fr_only') {
-        // French only
-        speakParts.push({ text: sentence.target, voice: frVoice, defaultLang: 'fr-FR' });
+        speakParts.push({
+          text: sentence.target,
+          voice: frVoice,
+          defaultLang: 'fr-FR',
+          pitch: this.resolvePitch(frVoice, frGender),
+        });
       } else if (options.languageMode === 'en_only') {
-        // English only
-        speakParts.push({ text: sentence.native, voice: enVoice, defaultLang: 'en-US' });
+        speakParts.push({
+          text: sentence.native,
+          voice: enVoice,
+          defaultLang: 'en-US',
+          pitch: this.resolvePitch(enVoice, enGender),
+        });
       }
 
       let currentIndex = 0;
@@ -336,6 +412,7 @@ class TTSService {
 
           const utterance = new SpeechSynthesisUtterance(part.text);
           utterance.rate = rate;
+          utterance.pitch = part.pitch;
           utterance.lang = part.voice?.lang || part.defaultLang;
 
           if (part.voice) {
@@ -398,4 +475,3 @@ class TTSService {
 }
 
 export const ttsService = new TTSService();
-

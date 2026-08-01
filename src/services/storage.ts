@@ -16,6 +16,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   languageMode: 'en_fr',
   targetVoiceURI: '',
   nativeVoiceURI: '',
+  targetVoiceGender: 'female',
+  nativeVoiceGender: 'female',
   sortOrder: 'original',
   loopPlayback: true,
   displayMode: 'shadowing',
@@ -139,6 +141,10 @@ export function loadUserSettings(): UserSettings {
       parsed.displayMode = parsed.activeRecallMode ? 'recall' : 'normal';
       delete parsed.activeRecallMode;
     }
+    // Drop removed cloud TTS fields if present from older builds
+    delete parsed.ttsProvider;
+    delete parsed.openaiApiKey;
+    delete parsed.cloudVoiceId;
     return { ...DEFAULT_SETTINGS, ...parsed };
   } catch (err) {
     console.error('Failed to load settings:', err);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserSettings, TextScale, SortOrder, LanguageMode, DisplayMode } from '../types';
 import { ttsService, TTSVoiceOption } from '../services/tts';
-import { Settings, X, Sliders, Volume2, RotateCcw, AlertTriangle, RefreshCw, Info } from 'lucide-react';
+import { Settings, X, Volume2, RotateCcw, AlertTriangle, RefreshCw, Info } from 'lucide-react';
 
 interface SettingsModalProps {
   settings: UserSettings;
@@ -285,7 +285,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
             </div>
 
-            {/* Voice Dropdowns Grid */}
+            <div className="flex gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-[11px] text-slate-600 leading-relaxed">
+              <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+              <p>
+                Free device voices only. On Android, tap <span className="font-bold">Male</span> to use a male French pack when available, or a deepened pitch if Chrome only exposes one French voice.
+                On iPhone, Enhanced/Premium Accessibility packs do not appear in Safari — <span className="font-bold">Male</span> usually selects Thomas.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -296,20 +303,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const voice = ttsService.getFrenchMaleVoice();
-                        if (voice) onUpdateSettings({ ...settings, targetVoiceURI: voice.voiceURI });
+                        const voice =
+                          ttsService.getFrenchMaleVoice() || ttsService.getVoiceForGender('fr', 'male');
+                        onUpdateSettings({
+                          ...settings,
+                          targetVoiceGender: 'male',
+                          targetVoiceURI: voice?.voiceURI || settings.targetVoiceURI,
+                        });
                       }}
-                      className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold transition-colors cursor-pointer"
+                      className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                        settings.targetVoiceGender === 'male'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
+                      }`}
                     >
                       Male
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        const voice = ttsService.getFrenchFemaleVoice();
-                        if (voice) onUpdateSettings({ ...settings, targetVoiceURI: voice.voiceURI });
+                        const voice =
+                          ttsService.getFrenchFemaleVoice() || ttsService.getVoiceForGender('fr', 'female');
+                        onUpdateSettings({
+                          ...settings,
+                          targetVoiceGender: 'female',
+                          targetVoiceURI: voice?.voiceURI || settings.targetVoiceURI,
+                        });
                       }}
-                      className="px-2 py-0.5 rounded bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold transition-colors cursor-pointer"
+                      className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                        settings.targetVoiceGender === 'female'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-100 hover:bg-purple-200 text-purple-800'
+                      }`}
                     >
                       Female
                     </button>
@@ -340,20 +365,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const voice = ttsService.getEnglishMaleVoice();
-                        if (voice) onUpdateSettings({ ...settings, nativeVoiceURI: voice.voiceURI });
+                        const voice =
+                          ttsService.getEnglishMaleVoice() || ttsService.getVoiceForGender('en', 'male');
+                        onUpdateSettings({
+                          ...settings,
+                          nativeVoiceGender: 'male',
+                          nativeVoiceURI: voice?.voiceURI || settings.nativeVoiceURI,
+                        });
                       }}
-                      className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold transition-colors cursor-pointer"
+                      className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                        settings.nativeVoiceGender === 'male'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
+                      }`}
                     >
                       Male
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        const voice = ttsService.getEnglishFemaleVoice();
-                        if (voice) onUpdateSettings({ ...settings, nativeVoiceURI: voice.voiceURI });
+                        const voice =
+                          ttsService.getEnglishFemaleVoice() || ttsService.getVoiceForGender('en', 'female');
+                        onUpdateSettings({
+                          ...settings,
+                          nativeVoiceGender: 'female',
+                          nativeVoiceURI: voice?.voiceURI || settings.nativeVoiceURI,
+                        });
                       }}
-                      className="px-2 py-0.5 rounded bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold transition-colors cursor-pointer"
+                      className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                        settings.nativeVoiceGender === 'female'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-100 hover:bg-purple-200 text-purple-800'
+                      }`}
                     >
                       Female
                     </button>

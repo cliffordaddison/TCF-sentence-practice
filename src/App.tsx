@@ -229,7 +229,10 @@ export default function App() {
           <div className="relative z-10 animate-slideInLeft">
             <Sidebar
               currentView={currentView}
-              onSelectView={(view) => setCurrentView(view)}
+              onSelectView={(view) => {
+                ttsService.stop();
+                setCurrentView(view);
+              }}
               onOpenSettings={() => setIsSettingsOpen(true)}
               onOpenImport={() => setIsImportOpen(true)}
               activeIslandName={activeIsland?.name}
@@ -245,7 +248,10 @@ export default function App() {
       {/* Desktop Left Navigation Sidebar */}
       <Sidebar
         currentView={currentView}
-        onSelectView={(view) => setCurrentView(view)}
+        onSelectView={(view) => {
+          ttsService.stop();
+          setCurrentView(view);
+        }}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenImport={() => setIsImportOpen(true)}
         activeIslandName={activeIsland?.name}
@@ -281,7 +287,10 @@ export default function App() {
             onDeleteIsland={handleDeleteIsland}
             onSaveSubBatchIsland={handleSaveSubBatchIsland}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            onBack={() => setCurrentView('collections')}
+            onBack={() => {
+              ttsService.stop();
+              setCurrentView('collections');
+            }}
             onRecordRepetition={() => {
               recordRepetition(3);
               setStats(loadUserStats());
