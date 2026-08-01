@@ -11,6 +11,7 @@ class AudioSessionManager {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && this.isSessionActive) {
           this.requestWakeLock();
+          this.startSilentAudio();
         }
         if (this.isSessionActive && window.speechSynthesis) {
           try {
@@ -142,6 +143,8 @@ class AudioSessionManager {
       this.silentAudio = new Audio(silentUri);
       this.silentAudio.loop = true;
       this.silentAudio.volume = 0.01;
+      this.silentAudio.setAttribute('playsinline', 'true');
+      (this.silentAudio as any).playsInline = true;
     }
     this.silentAudio.play().catch(() => {
       // User gesture might be required on initial play

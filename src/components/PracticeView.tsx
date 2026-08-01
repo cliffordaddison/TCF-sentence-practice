@@ -21,6 +21,7 @@ import {
   Languages,
 } from 'lucide-react';
 import { loadIslandPracticeState, saveIslandPracticeState } from '../services/storage';
+import { audioSession } from '../services/audioSession';
 
 interface PracticeViewProps {
   island: Island;
@@ -439,6 +440,13 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
         const currentSentence = queue[idx];
         if (!currentSentence) break;
 
+        // Update lockscreen / background notification metadata with current rep sentence
+        audioSession.updateMediaSession({
+          title: currentSentence.target,
+          artist: currentSentence.native,
+          album: islandRef.current.name || 'Language Practice',
+        });
+
         // Speak current sentence (English first, French second in en_fr mode)
         await ttsService.speakSentence(currentSentence, {
           languageMode: settingsRef.current.languageMode,
@@ -487,16 +495,54 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     };
 
     if (isPlaying) {
+      const activeSentence = playbackQueue[currentQueueIndex];
+      audioSession.startSession(
+        {
+          title: activeSentence ? activeSentence.target : island.name,
+          artist: activeSentence ? activeSentence.native : 'Repetition Practice',
+          album: island.name,
+        },
+        {
+          onPlay: () => setIsPlaying(true),
+          onPause: () => {
+            isAutoPlayRef.current = false;
+            setIsPlaying(false);
+            ttsService.stop();
+          },
+          onNext: () => {
+            const queue = queueRef.current;
+            if (!queue || queue.length === 0) return;
+            const nextIdx = (queueIndexRef.current + 1) % queue.length;
+            queueIndexRef.current = nextIdx;
+            setCurrentQueueIndex(nextIdx);
+            repCounterRef.current = 0;
+            setActiveRepCounter(0);
+            ttsService.stop();
+          },
+          onPrev: () => {
+            const queue = queueRef.current;
+            if (!queue || queue.length === 0) return;
+            const prevIdx = (queueIndexRef.current - 1 + queue.length) % queue.length;
+            queueIndexRef.current = prevIdx;
+            setCurrentQueueIndex(prevIdx);
+            repCounterRef.current = 0;
+            setActiveRepCounter(0);
+            ttsService.stop();
+          },
+        }
+      );
       startLoop();
     } else {
       isAutoPlayRef.current = false;
       ttsService.stop();
+      audioSession.stopSession();
     }
 
     return () => {
       cancelToken = true;
       isAutoPlayRef.current = false;
       ttsService.stop();
+      audioSession.stopSession();
     };
   }, [isPlaying]);
 
